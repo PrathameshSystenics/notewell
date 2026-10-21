@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Account · Notes &amp; Document Manager</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <script src="js/theme.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.7.50/daisyui.css">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.3"></script>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body class="bg-base-100 text-base-content">
+  <div id="page" hidden>
+    <div class="max-w-2xl">
+      <h2 class="text-2xl font-semibold tracking-tight">Account</h2>
+      <p class="text-sm opacity-60 mt-1 mb-8">Manage your profile, password and data.</p>
+
+      <div id="force-banner" hidden class="border border-warning/50 rounded-box px-4 py-3 mb-8 text-sm flex gap-3">
+        <span class="text-warning mt-0.5" id="force-icon"></span>
+        <span>You signed in with a temporary password. Set a new password to continue using the app.</span>
+      </div>
+
+      <section class="border hairline rounded-box divide-y divide-base-300">
+        <form id="profile-form" class="p-6 grid md:grid-cols-3 gap-6" novalidate>
+          <div>
+            <h3 class="font-medium text-sm">Profile</h3>
+            <p class="text-xs opacity-60 mt-1">Your name is shown in the app and in emails.</p>
+          </div>
+          <div class="md:col-span-2 space-y-4">
+            <div>
+              <label class="block text-sm mb-1.5" for="email">Email</label>
+              <input id="email" class="input input-sm w-full" disabled>
+            </div>
+            <div>
+              <label class="block text-sm mb-1.5" for="displayName">Name</label>
+              <input id="displayName" name="displayName" class="input input-sm w-full" maxlength="80" autocomplete="name">
+              <p class="text-error text-xs mt-1.5" data-error-for="displayName"></p>
+            </div>
+            <div class="text-sm"><span class="opacity-60">Roles:</span> <span id="roles"></span></div>
+            <div class="text-sm"><span class="opacity-60">Member since:</span> <span id="since"></span></div>
+            <button class="btn btn-sm btn-primary" type="submit">Save profile</button>
+          </div>
+        </form>
+
+        <form id="password-form" class="p-6 grid md:grid-cols-3 gap-6" novalidate>
+          <div>
+            <h3 class="font-medium text-sm">Password</h3>
+            <p class="text-xs opacity-60 mt-1">Changing it signs out your other sessions.</p>
+          </div>
+          <div class="md:col-span-2 space-y-4">
+            <input type="text" name="username" autocomplete="username" class="hidden" tabindex="-1" aria-hidden="true">
+            <div>
+              <label class="block text-sm mb-1.5" for="currentPassword">Current password</label>
+              <input id="currentPassword" name="currentPassword" type="password" class="input input-sm w-full" autocomplete="current-password">
+              <p class="text-error text-xs mt-1.5" data-error-for="currentPassword"></p>
+            </div>
+            <div>
+              <label class="block text-sm mb-1.5" for="newPassword">New password</label>
+              <input id="newPassword" name="newPassword" type="password" class="input input-sm w-full" autocomplete="new-password">
+              <p class="text-xs opacity-60 mt-1.5">At least 8 characters with upper and lower case letters, a number and a symbol.</p>
+              <p class="text-error text-xs mt-1.5" data-error-for="newPassword"></p>
+            </div>
+            <div>
+              <label class="block text-sm mb-1.5" for="confirmPassword">Confirm new password</label>
+              <input id="confirmPassword" name="confirmPassword" type="password" class="input input-sm w-full" autocomplete="new-password">
+              <p class="text-error text-xs mt-1.5" data-error-for="confirmPassword"></p>
+            </div>
+            <button class="btn btn-sm btn-primary" type="submit">Change password</button>
+          </div>
+        </form>
+
+        <div class="p-6 grid md:grid-cols-3 gap-6">
+          <div>
+            <h3 class="font-medium text-sm">Appearance</h3>
+            <p class="text-xs opacity-60 mt-1">Saved on this device.</p>
+          </div>
+          <div class="md:col-span-2">
+            <div class="join" id="theme-pick">
+              <button class="join-item btn btn-sm" data-set-theme="light">Light</button>
+              <button class="join-item btn btn-sm" data-set-theme="dark">Dark</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-6 grid md:grid-cols-3 gap-6" id="data-section" hidden>
+          <div>
+            <h3 class="font-medium text-sm">Your data</h3>
+            <p class="text-xs opacity-60 mt-1">Stored in this browser with <span id="engine"></span>.</p>
+          </div>
+          <div class="md:col-span-2 space-y-3">
+            <p class="text-sm opacity-75">Download every note you own as JSON, including content, status and category.</p>
+            <button class="btn btn-sm gap-2" id="export"></button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="js/db.js"></script>
+  <script src="js/core.js"></script>
+  <script src="js/ui.js"></script>
+  <script>
+    (async () => {
+      let user = await UI.boot({ guard: 'auth', active: 'account', title: 'Account' });
+      const profile = document.getElementById('profile-form');
+      const pwd = document.getElementById('password-form');
+
+      function render() {
+        document.getElementById('email').value = user.email;
+        profile.elements.displayName.value = user.displayName;
+        pwd.elements.username.value = user.email;
+        document.getElementById('roles').innerHTML = user.roles.length
+          ? user.roles.map((r) => `<span class="badge badge-sm badge-ghost">${r}</span>`).join(' ')
+          : '<span class="opacity-60">none</span>';
+        document.getElementById('since').textContent = UI.formatDate(user.createdAt, false);
+        document.getElementById('force-banner').hidden = !user.mustChangePassword;
+        document.getElementById('data-section').hidden = !user.isUser;
+      }
+      document.getElementById('force-icon').innerHTML = UI.icon('lock');
+      document.getElementById('engine').textContent = Store.engineName;
+      document.getElementById('export').innerHTML = UI.icon('download') + 'Export my notes';
+      render();
+      if (user.mustChangePassword) pwd.elements.currentPassword.focus();
+
+      profile.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        UI.clearErrors(profile);
+        try {
+          user = await UI.busy(profile.querySelector('[type=submit]'), () => Auth.updateProfile(user, { displayName: profile.elements.displayName.value }));
+          render();
+          UI.toast('Profile saved.', 'success');
+        } catch (err) {
+          if (!UI.showErrors(profile, err)) UI.handleError(err);
+        }
+      });
+
+      pwd.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        UI.clearErrors(pwd);
+        const f = pwd.elements;
+        try {
+          const wasForced = user.mustChangePassword;
+          user = await UI.busy(pwd.querySelector('[type=submit]'), () =>
+            Auth.changePassword(user, { currentPassword: f.currentPassword.value, newPassword: f.newPassword.value, confirmPassword: f.confirmPassword.value })
+          );
+          pwd.reset();
+          if (wasForced) {
+            UI.flash('Password changed. Welcome!');
+            location.href = Auth.homeFor(user);
+            return;
+          }
+          render();
+          UI.toast('Password changed.', 'success');
+        } catch (err) {
+          if (!UI.showErrors(pwd, err)) UI.handleError(err);
+        }
+      });
+
+      const themePick = document.getElementById('theme-pick');
+      const markTheme = () =>
+        themePick.querySelectorAll('[data-set-theme]').forEach((b) =>
+          b.classList.toggle('btn-active', b.dataset.setTheme === document.documentElement.getAttribute('data-theme'))
+        );
+      themePick.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-set-theme]');
+        if (!b) return;
+        UI.setTheme(b.dataset.setTheme);
+        markTheme();
+      });
+      document.addEventListener('click', (e) => e.target.closest('[data-theme-toggle]') && setTimeout(markTheme));
+      markTheme();
+
+      document.getElementById('export').addEventListener('click', async () => {
+        try {
+          const data = await Notes.exportAll(user);
+          UI.download(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), `notes-export-${new Date().toISOString().slice(0, 10)}.json`);
+        } catch (err) {
+          UI.handleError(err);
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

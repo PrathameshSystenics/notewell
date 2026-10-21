@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin · Notes &amp; Document Manager</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <script src="js/theme.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.7.50/daisyui.css">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.3"></script>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body class="bg-base-100 text-base-content">
+  <div id="page" hidden>
+    <h2 class="text-2xl font-semibold tracking-tight">Administration</h2>
+    <p class="text-sm opacity-60 mt-1 mb-8">System-wide totals. Administrators manage accounts and categories but cannot read users' private notes.</p>
+
+    <div class="grid grid-cols-2 md:grid-cols-4 border hairline rounded-box divide-x divide-y md:divide-y-0 divide-base-300 overflow-hidden" id="stats"></div>
+
+    <div class="grid md:grid-cols-2 gap-8 mt-10">
+      <section>
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-medium">Newest accounts</h3>
+          <a href="admin-users.html" class="text-sm opacity-60 hover:opacity-100 py-1.5">All users</a>
+        </div>
+        <ul class="border hairline rounded-box divide-y divide-base-300" id="newest"></ul>
+      </section>
+      <section>
+        <h3 class="text-sm font-medium mb-3">Manage</h3>
+        <div class="space-y-2" id="links"></div>
+      </section>
+    </div>
+  </div>
+
+  <script src="js/db.js"></script>
+  <script src="js/core.js"></script>
+  <script src="js/ui.js"></script>
+  <script>
+    (async () => {
+      const admin = await UI.boot({ guard: 'admin', active: 'admin', title: 'Administration' });
+      const s = await Admin.stats(admin);
+      const cell = (label, value, hint) => `
+        <div class="p-5">
+          <div class="text-xs opacity-60">${label}</div>
+          <div class="text-2xl font-semibold mt-1 tabular-nums">${value}</div>
+          ${hint ? `<div class="text-xs opacity-50 mt-1">${hint}</div>` : ''}
+        </div>`;
+      document.getElementById('stats').innerHTML =
+        cell('Registered users', s.users, `${s.admins} admin${s.admins === 1 ? '' : 's'}${s.withoutRole ? ` · ${s.withoutRole} without role` : ''}`) +
+        cell('Notes', s.notes, 'across all users') +
+        cell('Categories', s.categories, 'shared') +
+        cell('Attachments', s.attachments, Util.formatBytes(s.storageBytes) + ' stored');
+
+      document.getElementById('newest').innerHTML = s.newestUsers
+        .map(
+          (u) => `<li><a href="admin-user.html?id=${encodeURIComponent(u.id)}" class="flex items-center gap-3 px-4 py-3 hover:bg-base-200">
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-medium truncate">${UI.esc(u.displayName)}</div>
+              <div class="text-xs opacity-55 truncate">${UI.esc(u.email)}</div>
+            </div>
+            <div class="flex gap-1">${u.roles.map((r) => `<span class="badge badge-sm badge-ghost">${r}</span>`).join('')}</div>
+            <span class="text-xs opacity-50 w-16 text-right">${UI.relTime(u.createdAt)}</span>
+          </a></li>`
+        )
+        .join('');
+
+      const link = (href, ic, title, body) => `<a href="${href}" class="note-card flex items-start gap-3 border hairline rounded-box p-4">
+          <span class="opacity-60 mt-0.5">${UI.icon(ic)}</span>
+          <span><span class="block text-sm font-medium">${title}</span><span class="block text-xs opacity-60 mt-0.5">${body}</span></span>
+        </a>`;
+      document.getElementById('links').innerHTML =
+        link('admin-users.html', 'users', 'Users', 'Review accounts, assign or remove roles, unlock accounts.') +
+        link('admin-categories.html', 'tag', 'Categories', 'Create, rename and delete the shared category list.');
+    })();
+  </script>
+</body>
+</html>

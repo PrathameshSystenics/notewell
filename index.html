@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Notes &amp; Document Manager — Markdown notes with history and attachments</title>
+  <meta name="description" content="Write notes in Markdown, track their status on a board, attach PDFs and images, and go back to any earlier version.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <script src="js/theme.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.7.50/daisyui.css">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.3"></script>
+  <link rel="stylesheet" href="css/app.css">
+  <style>html { scroll-behavior: smooth; scroll-padding-top: 5rem; }</style>
+</head>
+<body class="bg-base-100 text-base-content">
+  <div id="page" hidden class="min-h-screen flex flex-col">
+    <div data-public-header="landing"></div>
+
+    <main class="flex-1">
+      <!-- Hero -->
+      <section class="relative overflow-hidden border-b hairline">
+        <div class="hero-grid absolute inset-0 pointer-events-none" aria-hidden="true"></div>
+        <div class="relative max-w-6xl mx-auto px-4 md:px-8 pt-14 pb-16 md:pt-24 md:pb-24 grid lg:grid-cols-[1fr_1.05fr] gap-12 lg:gap-16 items-center">
+          <div>
+            <span class="inline-flex items-center gap-2 rounded-full border hairline bg-base-100 px-3 py-1 text-xs">
+              <span class="live-dot"></span>Live status updates · Markdown · Version history
+            </span>
+            <h1 class="mt-6 text-4xl sm:text-5xl font-bold tracking-tight leading-[1.08]">
+              Your notes and documents,<br class="hidden sm:block"> <span class="text-primary-strong">in one tidy place.</span>
+            </h1>
+            <p class="mt-5 text-base sm:text-lg opacity-70 max-w-xl leading-relaxed">
+              Write in Markdown, sort notes into categories, move them from Draft to Completed on a board,
+              and attach the PDFs and images that go with them. Every save is kept, so you can always go back.
+            </p>
+            <div class="mt-8 flex flex-wrap gap-3">
+              <a href="register.html" class="btn btn-primary gap-2">Create a free account <span id="i-arrow"></span></a>
+              <a href="login.html" class="btn btn-ghost border hairline">Sign in</a>
+            </div>
+            <p class="mt-5 text-xs opacity-55 flex items-center gap-1.5"><span id="i-db"></span>Runs in your browser. Your data is saved on this device.</p>
+          </div>
+
+          <!-- Product preview -->
+          <div class="relative" aria-hidden="true">
+            <div class="rounded-box border hairline bg-base-100 shadow-xl overflow-hidden">
+              <div class="flex items-center gap-2 px-4 h-11 border-b hairline bg-base-200">
+                <span class="size-2.5 rounded-full bg-base-300"></span><span class="size-2.5 rounded-full bg-base-300"></span><span class="size-2.5 rounded-full bg-base-300"></span>
+                <span class="ml-3 text-xs opacity-50">My notes · Board</span>
+              </div>
+              <div class="grid grid-cols-3 gap-2.5 p-3 text-left">
+                <div class="bg-base-200 rounded-lg p-2 space-y-2">
+                  <div class="flex items-center gap-1.5 text-[11px] font-medium px-1"><span class="dot dot-Draft"></span>Draft</div>
+                  <div class="bg-base-100 border hairline rounded-md p-2"><div class="text-[11px] font-medium">Plant app idea</div><div class="h-1.5 rounded bg-base-300 mt-2 w-4/5"></div><div class="h-1.5 rounded bg-base-300 mt-1 w-3/5"></div></div>
+                  <div class="bg-base-100 border hairline rounded-md p-2"><div class="text-[11px] font-medium">Groceries</div><div class="h-1.5 rounded bg-base-300 mt-2 w-2/3"></div></div>
+                </div>
+                <div class="bg-base-200 rounded-lg p-2 space-y-2">
+                  <div class="flex items-center gap-1.5 text-[11px] font-medium px-1"><span class="dot dot-InProgress"></span>In progress</div>
+                  <div class="bg-base-100 border border-primary/40 rounded-md p-2 ring-2 ring-primary/15"><div class="text-[11px] font-medium">Learn EF Core</div><div class="text-[10px] opacity-60 mt-1">☑ First migration<br>☐ Pagination</div></div>
+                  <div class="bg-base-100 border hairline rounded-md p-2"><div class="text-[11px] font-medium">Reading list</div><div class="h-1.5 rounded bg-base-300 mt-2 w-3/4"></div></div>
+                </div>
+                <div class="bg-base-200 rounded-lg p-2 space-y-2">
+                  <div class="flex items-center gap-1.5 text-[11px] font-medium px-1"><span class="dot dot-Completed"></span>Completed</div>
+                  <div class="bg-base-100 border hairline rounded-md p-2"><div class="text-[11px] font-medium">Sprint retro</div><div class="flex items-center gap-1 text-[10px] opacity-60 mt-1.5"><span id="i-clip"></span>2 files</div></div>
+                  <div class="bg-base-100 border hairline rounded-md p-2"><div class="text-[11px] font-medium">Identity checklist</div><div class="h-1.5 rounded bg-base-300 mt-2 w-1/2"></div></div>
+                </div>
+              </div>
+            </div>
+            <div class="absolute -bottom-5 left-4 sm:-left-6 rounded-box border hairline bg-base-100 shadow-lg px-4 py-3 text-xs flex items-center gap-3 max-w-[16rem]">
+              <span class="size-7 rounded-full soft-primary grid place-items-center shrink-0" id="i-bell"></span>
+              <span>Your note “Learn EF Core” is now <strong>Completed</strong>.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Features -->
+      <section id="features" class="max-w-6xl mx-auto px-4 md:px-8 py-16 md:py-24">
+        <div class="max-w-2xl">
+          <p class="text-sm font-medium text-primary-strong">Features</p>
+          <h2 class="mt-2 text-3xl font-bold tracking-tight">Everything a note needs, nothing it doesn't</h2>
+          <p class="mt-3 opacity-70">A small, focused tool for personal notes and the files that belong with them.</p>
+        </div>
+        <div class="mt-10 grid sm:grid-cols-2 lg:grid-cols-3 gap-4" id="feature-grid"></div>
+      </section>
+
+      <!-- Views -->
+      <section id="views" class="bg-base-200 border-y hairline">
+        <div class="max-w-6xl mx-auto px-4 md:px-8 py-16 md:py-24 grid lg:grid-cols-2 gap-12 items-center">
+          <div>
+            <p class="text-sm font-medium text-primary-strong">Three ways to look at your work</p>
+            <h2 class="mt-2 text-3xl font-bold tracking-tight">Grid, list or board. Switch with one click.</h2>
+            <ul class="mt-8 space-y-5" id="view-list"></ul>
+          </div>
+          <div class="rounded-box border hairline bg-base-100 p-5 sm:p-6" aria-hidden="true">
+            <div class="flex items-center gap-2 text-xs opacity-60 mb-4"><span class="mono">learn-ef-core.md</span><span class="ml-auto">Split view</span></div>
+            <div class="grid sm:grid-cols-2 gap-4">
+              <pre class="mono text-[12px] leading-6 bg-base-200 rounded-lg p-4 overflow-x-auto"><span class="text-primary-strong">## Goals</span>
+- [x] DbContext
+- [x] First migration
+- [ ] Pagination
+
+Use <span class="text-primary-strong">`AsNoTracking()`</span>
+for **read-only** queries.</pre>
+              <div class="md-body text-sm">
+                <h3>Goals</h3>
+                <ul><li><input type="checkbox" checked disabled> DbContext</li><li><input type="checkbox" checked disabled> First migration</li><li><input type="checkbox" disabled> Pagination</li></ul>
+                <p>Use <code>AsNoTracking()</code> for <strong>read-only</strong> queries.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Privacy & roles -->
+      <section id="privacy" class="max-w-6xl mx-auto px-4 md:px-8 py-16 md:py-24">
+        <div class="max-w-2xl">
+          <p class="text-sm font-medium text-primary-strong">Privacy by design</p>
+          <h2 class="mt-2 text-3xl font-bold tracking-tight">Your notes are yours. Even admins can't read them.</h2>
+        </div>
+        <div class="mt-10 grid md:grid-cols-2 gap-4">
+          <div class="rounded-box border hairline p-6">
+            <div class="flex items-center gap-3"><span class="size-9 rounded-lg soft-primary grid place-items-center" id="i-user"></span><h3 class="font-semibold">User</h3></div>
+            <ul class="mt-5 space-y-2.5 text-sm" id="user-list"></ul>
+          </div>
+          <div class="rounded-box border hairline p-6">
+            <div class="flex items-center gap-3"><span class="size-9 rounded-lg soft-primary grid place-items-center" id="i-shield"></span><h3 class="font-semibold">Admin</h3></div>
+            <ul class="mt-5 space-y-2.5 text-sm" id="admin-list"></ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- CTA -->
+      <section class="max-w-6xl mx-auto px-4 md:px-8 pb-16 md:pb-24">
+        <div class="rounded-box bg-base-200 border hairline px-6 py-10 sm:px-12 sm:py-14 flex flex-col md:flex-row md:items-center gap-6">
+          <div class="flex-1">
+            <h2 class="text-2xl sm:text-3xl font-bold tracking-tight">Start organising your notes today</h2>
+            <p class="mt-2 opacity-70">Create an account in seconds. Sample data is ready if you want to look around first.</p>
+          </div>
+          <div class="flex flex-wrap gap-3">
+            <a href="register.html" class="btn btn-primary">Get started</a>
+            <a href="login.html" class="btn btn-ghost border hairline bg-base-100">Try the demo</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div data-footer-slot></div>
+  </div>
+
+  <script src="js/db.js"></script>
+  <script src="js/core.js"></script>
+  <script src="js/ui.js"></script>
+  <script>
+    (async () => {
+      const user = await UI.bootPublic();
+      // The home page is for visitors only: signed-in people go to their workspace.
+      if (user) {
+        location.replace(Auth.homeFor(user));
+        return;
+      }
+
+      const set = (id, html) => (document.getElementById(id).innerHTML = html);
+      set('i-arrow', UI.icon('arrow'));
+      set('i-db', UI.icon('database', 'size-3.5'));
+      set('i-clip', UI.icon('paperclip', 'size-3'));
+      set('i-bell', UI.icon('bell', 'size-3.5'));
+      set('i-user', UI.icon('user'));
+      set('i-shield', UI.icon('shield'));
+
+      const FEATURES = [
+        ['edit', 'Markdown editor', 'Toolbar, live preview, split view and shortcuts. Lists continue when you press Enter.'],
+        ['board', 'Kanban board', 'Drag notes between Draft, In progress and Completed. Switch to grid or list any time.'],
+        ['history', 'Version history', 'Every save is a version. Compare any two line by line and restore in one click.'],
+        ['paperclip', 'Attachments', 'Attach PDFs and images up to 5 MB. Files are checked by their actual content, not just their name.'],
+        ['zap', 'Live status updates', 'Change a status and get notified instantly in every tab where you are signed in.'],
+        ['search', 'Search & filters', 'Full-text search, category and status filters, six sort orders and pinned notes.']
+      ];
+      set(
+        'feature-grid',
+        FEATURES.map(
+          ([ic, title, body]) => `<div class="rounded-box border hairline p-6 hover:border-primary/40 transition-colors">
+            <span class="size-10 rounded-lg soft-primary grid place-items-center">${UI.icon(ic, 'size-5')}</span>
+            <h3 class="mt-4 font-semibold">${title}</h3>
+            <p class="mt-1.5 text-sm opacity-70 leading-relaxed">${body}</p>
+          </div>`
+        ).join('')
+      );
+
+      const VIEWS = [
+        ['grid', 'Grid', 'Cards with a preview of each note, good for scanning.'],
+        ['list', 'List', 'Compact rows with category, status and attachment count.'],
+        ['board', 'Board', 'Columns by status. Drag a card to move it along.']
+      ];
+      set(
+        'view-list',
+        VIEWS.map(
+          ([ic, title, body]) => `<li class="flex gap-4">
+            <span class="size-9 rounded-lg border hairline bg-base-100 grid place-items-center shrink-0 text-primary-strong">${UI.icon(ic)}</span>
+            <div><div class="font-medium">${title}</div><div class="text-sm opacity-70 mt-0.5">${body}</div></div>
+          </li>`
+        ).join('')
+      );
+
+      const check = (t) => `<li class="flex gap-2.5"><span class="text-primary-strong mt-0.5">${UI.icon('check')}</span><span>${t}</span></li>`;
+      set('user-list', ['Create, edit and delete your own notes', 'Organise by shared categories', 'Upload, preview and download attachments', 'Export everything as JSON or Markdown'].map(check).join(''));
+      set('admin-list', ['Manage accounts and roles', 'Maintain the shared category list', 'See totals, never note contents', 'Cannot remove the last administrator'].map(check).join(''));
+    })();
+  </script>
+</body>
+</html>

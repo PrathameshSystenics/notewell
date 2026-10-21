@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Edit note · Notes &amp; Document Manager</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <script src="js/theme.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.7.50/daisyui.css">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.3"></script>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body class="bg-base-100 text-base-content">
+  <div id="page" hidden>
+    <div id="not-found" hidden class="py-24 text-center">
+      <p class="mono text-sm opacity-50">404</p>
+      <h2 class="text-lg font-semibold mt-2">Note not found</h2>
+      <p class="text-sm opacity-60 mt-1">It may have been deleted, or it isn't yours.</p>
+      <a href="notes.html" class="btn btn-sm mt-6">Back to notes</a>
+    </div>
+
+    <form id="note-form" novalidate hidden>
+      <div class="flex flex-wrap items-center gap-3 mb-6">
+        <a href="notes.html" id="back" class="btn btn-ghost btn-sm btn-square" aria-label="Back"></a>
+        <h2 class="text-lg font-semibold tracking-tight flex-1" id="heading">New note</h2>
+        <span class="text-xs opacity-50 hidden sm:inline" id="dirty-label"></span>
+        <a href="notes.html" class="btn btn-ghost btn-sm" id="cancel">Cancel</a>
+        <button type="submit" class="btn btn-primary btn-sm gap-2">Save <kbd class="kbd kbd-xs bg-transparent border-current/30 text-current hidden sm:inline-flex">Ctrl S</kbd></button>
+      </div>
+
+      <div id="draft-banner" hidden class="flex flex-wrap items-center gap-3 border hairline rounded-box px-4 py-3 mb-5 text-sm bg-base-200">
+        <span class="flex-1">You have unsaved changes from <span id="draft-time"></span>.</span>
+        <button type="button" class="btn btn-xs" id="draft-restore">Restore</button>
+        <button type="button" class="btn btn-xs btn-ghost" id="draft-discard">Discard</button>
+      </div>
+
+      <div class="space-y-5">
+        <div>
+          <label for="title" class="sr-only">Title</label>
+          <input id="title" name="title" class="input input-lg w-full font-semibold text-xl" placeholder="Untitled note" maxlength="200" autocomplete="off">
+          <p class="text-error text-xs mt-1.5" data-error-for="title"></p>
+        </div>
+
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label for="categoryId" class="block text-xs opacity-70 mb-1.5">Category</label>
+            <select id="categoryId" name="categoryId" class="select select-sm w-full"></select>
+            <p class="text-error text-xs mt-1.5" data-error-for="categoryId"></p>
+          </div>
+          <div>
+            <label for="status" class="block text-xs opacity-70 mb-1.5">Status</label>
+            <select id="status" name="status" class="select select-sm w-full"></select>
+            <p class="text-error text-xs mt-1.5" data-error-for="status"></p>
+          </div>
+        </div>
+
+        <div class="border hairline rounded-box overflow-hidden">
+          <div class="flex items-center gap-2 px-2 py-1.5 border-b hairline bg-base-200">
+            <div class="toolbar-scroll flex flex-nowrap items-center gap-0.5 overflow-x-auto min-w-0 flex-1" id="toolbar"></div>
+            <div class="join shrink-0" id="modes">
+              <button type="button" class="join-item btn btn-xs" data-mode="write">Write</button>
+              <button type="button" class="join-item btn btn-xs" data-mode="preview">Preview</button>
+              <button type="button" class="join-item btn btn-xs hidden lg:inline-flex" data-mode="split">Split</button>
+            </div>
+          </div>
+          <div class="grid" id="panes">
+            <textarea id="content" name="content" class="md-editor w-full min-h-[26rem] p-4 bg-base-100 outline-none border-0 block" placeholder="Write in Markdown…&#10;&#10;# Heading&#10;- list item&#10;- [ ] task&#10;**bold**, _italic_, `code`" spellcheck="true"></textarea>
+            <div id="preview" class="md-body p-5 min-h-[26rem] overflow-auto bg-base-100"></div>
+          </div>
+          <div class="flex flex-wrap items-center gap-4 px-4 py-2 border-t hairline text-xs opacity-60">
+            <span id="counts">0 words</span>
+            <span class="ml-auto">Markdown supported</span>
+            <button type="button" class="link py-1.5" onclick="document.getElementById('cheatsheet').showModal()">Syntax help</button>
+          </div>
+        </div>
+        <p class="text-error text-xs" data-error-for="content"></p>
+      </div>
+    </form>
+
+    <dialog id="cheatsheet" class="modal">
+      <div class="modal-box max-w-lg border hairline">
+        <h3 class="font-semibold mb-4">Markdown quick reference</h3>
+        <table class="table table-sm">
+          <tbody class="mono text-xs">
+            <tr><td># Heading</td><td>Heading (## and ### for smaller)</td></tr>
+            <tr><td>**bold** / _italic_</td><td>Emphasis</td></tr>
+            <tr><td>~~text~~</td><td>Strikethrough</td></tr>
+            <tr><td>- item</td><td>Bulleted list</td></tr>
+            <tr><td>1. item</td><td>Numbered list</td></tr>
+            <tr><td>- [ ] task</td><td>Task list (- [x] when done)</td></tr>
+            <tr><td>[text](https://…)</td><td>Link</td></tr>
+            <tr><td>`code`</td><td>Inline code</td></tr>
+            <tr><td>```lang … ```</td><td>Code block</td></tr>
+            <tr><td>&gt; quote</td><td>Blockquote</td></tr>
+            <tr><td>| a | b |</td><td>Table</td></tr>
+            <tr><td>---</td><td>Divider</td></tr>
+          </tbody>
+        </table>
+        <p class="text-xs opacity-60 mt-4">Shortcuts: Ctrl+B bold, Ctrl+I italic, Ctrl+K link, Ctrl+S save. Lists continue when you press Enter.</p>
+        <div class="modal-action"><form method="dialog"><button class="btn btn-sm">Close</button></form></div>
+      </div>
+      <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked@18.1.1/lib/marked.umd.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.4.17/dist/purify.min.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/core.js"></script>
+  <script src="js/ui.js"></script>
+  <script>
+    (async () => {
+      const id = UI.params().id || '';
+      const user = await UI.boot({ guard: 'user', active: id ? 'notes' : 'new', title: id ? 'Edit note' : 'New note' });
+      const form = document.getElementById('note-form');
+      const f = form.elements; // use form.elements: form.title is the form's own attribute
+      const editor = f.content;
+      const preview = document.getElementById('preview');
+      const cats = await Categories.list();
+
+      document.getElementById('back').innerHTML = UI.icon('back');
+      f.categoryId.innerHTML = '<option value="">Uncategorized</option>' + cats.map((c) => `<option value="${c.id}">${UI.esc(c.name)}</option>`).join('');
+      f.status.innerHTML = STATUSES.map((s) => `<option value="${s}">${STATUS_LABELS[s]}</option>`).join('');
+
+      let note = null;
+      if (id) {
+        try {
+          note = await Notes.get(user, id);
+        } catch (err) {
+          if (err.code === 'notfound') {
+            document.getElementById('not-found').hidden = false;
+            return;
+          }
+          throw err;
+        }
+        document.getElementById('heading').textContent = 'Edit note';
+        const back = 'note.html?id=' + encodeURIComponent(id);
+        document.getElementById('back').href = back;
+        document.getElementById('cancel').href = back;
+        f.title.value = note.title;
+        f.content.value = note.content;
+        f.categoryId.value = note.categoryId || '';
+        f.status.value = note.status;
+      } else {
+        const preset = UI.params();
+        if (preset.status && STATUSES.includes(preset.status)) f.status.value = preset.status;
+        if (preset.categoryId && cats.some((c) => c.id === preset.categoryId)) f.categoryId.value = preset.categoryId;
+      }
+      form.hidden = false;
+
+      const values = () => ({ title: f.title.value, content: f.content.value, categoryId: f.categoryId.value, status: f.status.value });
+      const initial = JSON.stringify(values());
+      const isDirty = () => JSON.stringify(values()) !== initial;
+
+      /* ---------- local draft recovery ---------- */
+      const draftKey = `ndm.draft.${user.id}.${id || 'new'}`;
+      const readDraft = () => {
+        try {
+          return JSON.parse(localStorage.getItem(draftKey) || 'null');
+        } catch (_) {
+          return null;
+        }
+      };
+      const clearDraft = () => {
+        try {
+          localStorage.removeItem(draftKey);
+        } catch (_) {}
+      };
+      let draftTimer;
+      function saveDraft() {
+        clearTimeout(draftTimer);
+        draftTimer = setTimeout(() => {
+          try {
+            if (isDirty()) localStorage.setItem(draftKey, JSON.stringify({ ...values(), at: Util.now() }));
+            else clearDraft();
+          } catch (_) {}
+        }, 400);
+      }
+      const draft = readDraft();
+      if (draft && JSON.stringify({ title: draft.title, content: draft.content, categoryId: draft.categoryId, status: draft.status }) !== initial) {
+        const banner = document.getElementById('draft-banner');
+        document.getElementById('draft-time').textContent = UI.relTime(draft.at);
+        banner.hidden = false;
+        document.getElementById('draft-restore').onclick = () => {
+          f.title.value = draft.title;
+          f.content.value = draft.content;
+          if ([...f.categoryId.options].some((o) => o.value === draft.categoryId)) f.categoryId.value = draft.categoryId;
+          if (STATUSES.includes(draft.status)) f.status.value = draft.status;
+          banner.hidden = true;
+          onChange();
+        };
+        document.getElementById('draft-discard').onclick = () => {
+          clearDraft();
+          banner.hidden = true;
+        };
+      }
+
+      /* ---------- modes ---------- */
+      let mode = 'write';
+      try {
+        mode = localStorage.getItem('ndm.editorMode') || 'write';
+      } catch (_) {}
+      function setMode(m) {
+        if (m === 'split' && !matchMedia('(min-width: 1024px)').matches) m = 'write';
+        mode = m;
+        try {
+          localStorage.setItem('ndm.editorMode', m);
+        } catch (_) {}
+        const panes = document.getElementById('panes');
+        panes.className = 'grid ' + (m === 'split' ? 'grid-cols-2 divide-x divide-base-300' : 'grid-cols-1');
+        editor.hidden = m === 'preview';
+        preview.hidden = m === 'write';
+        document.querySelectorAll('#modes [data-mode]').forEach((b) => b.classList.toggle('btn-active', b.dataset.mode === m));
+        document.getElementById('toolbar').classList.toggle('invisible', m === 'preview');
+        renderPreview();
+        autoGrow();
+        if (m !== 'preview') editor.focus();
+      }
+      document.getElementById('modes').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-mode]');
+        if (b) setMode(b.dataset.mode);
+      });
+
+      function renderPreview() {
+        if (mode !== 'write') preview.innerHTML = UI.renderMarkdown(editor.value);
+      }
+      function autoGrow() {
+        editor.style.height = 'auto';
+        editor.style.height = Math.max(editor.scrollHeight, 416) + 'px';
+        if (mode === 'split') preview.style.maxHeight = editor.style.height;
+        else preview.style.maxHeight = '';
+      }
+      function updateCounts() {
+        const words = Util.wordCount(editor.value);
+        document.getElementById('counts').textContent =
+          `${words} ${words === 1 ? 'word' : 'words'} · ${editor.value.length.toLocaleString()} characters · ~${Math.max(1, Math.round(words / 200))} min read`;
+      }
+      let previewTimer;
+      function onChange() {
+        updateCounts();
+        autoGrow();
+        clearTimeout(previewTimer);
+        previewTimer = setTimeout(renderPreview, 120);
+        document.getElementById('dirty-label').textContent = isDirty() ? 'Unsaved changes' : '';
+        saveDraft();
+      }
+      form.addEventListener('input', onChange);
+      form.addEventListener('change', onChange);
+
+      /* ---------- markdown toolbar ---------- */
+      function replaceRange(text, start, end, selectFrom, selectTo) {
+        editor.focus();
+        editor.setSelectionRange(start, end);
+        // execCommand keeps the browser's undo history; fall back if unsupported.
+        const ok = document.execCommand && document.execCommand('insertText', false, text);
+        if (!ok) {
+          editor.setRangeText(text, start, end, 'end');
+          editor.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        // Place the caret explicitly; browsers differ after deleting a trailing line.
+        if (selectFrom != null) editor.setSelectionRange(selectFrom, selectTo);
+        else editor.setSelectionRange(start + text.length, start + text.length);
+      }
+      function wrap(before, after, placeholder) {
+        const { selectionStart: s, selectionEnd: e, value } = editor;
+        const sel = value.slice(s, e) || placeholder;
+        replaceRange(before + sel + after, s, e, s + before.length, s + before.length + sel.length);
+      }
+      function prefixLines(prefix, numbered) {
+        const { selectionStart: s, selectionEnd: e, value } = editor;
+        const lineStart = value.lastIndexOf('\n', s - 1) + 1;
+        let lineEnd = value.indexOf('\n', e);
+        if (lineEnd === -1) lineEnd = value.length;
+        const lines = value.slice(lineStart, lineEnd).split('\n');
+        const allHave = lines.every((l, i) => l.startsWith(numbered ? `${i + 1}. ` : prefix));
+        const out = lines
+          .map((l, i) => {
+            const p = numbered ? `${i + 1}. ` : prefix;
+            return allHave ? l.slice(p.length) : p + l;
+          })
+          .join('\n');
+        replaceRange(out, lineStart, lineEnd, lineStart, lineStart + out.length);
+      }
+      function insertBlock(text) {
+        const { selectionStart: s, value } = editor;
+        const needsNl = s > 0 && value[s - 1] !== '\n' ? '\n\n' : '';
+        replaceRange(needsNl + text, s, editor.selectionEnd);
+      }
+      const TOOLS = [
+        ['H', 'Heading', () => prefixLines('## ')],
+        ['B', 'Bold (Ctrl+B)', () => wrap('**', '**', 'bold text'), 'font-bold'],
+        ['I', 'Italic (Ctrl+I)', () => wrap('_', '_', 'italic text'), 'italic'],
+        ['S', 'Strikethrough', () => wrap('~~', '~~', 'text'), 'line-through'],
+        ['|'],
+        ['•', 'Bulleted list', () => prefixLines('- ')],
+        ['1.', 'Numbered list', () => prefixLines('', true)],
+        ['☐', 'Task list', () => prefixLines('- [ ] ')],
+        ['❝', 'Quote', () => prefixLines('> ')],
+        ['|'],
+        ['<>', 'Inline code', () => wrap('`', '`', 'code'), 'mono'],
+        ['{ }', 'Code block', () => wrap('\n```\n', '\n```\n', 'code'), 'mono'],
+        ['Link', 'Link (Ctrl+K)', () => {
+          const { selectionStart: s, selectionEnd: e, value } = editor;
+          const label = value.slice(s, e) || 'link text';
+          replaceRange(`[${label}](https://)`, s, e, s + label.length + 3, s + label.length + 11);
+        }],
+        ['Table', 'Table', () => insertBlock('| Column | Column |\n| --- | --- |\n| Cell | Cell |\n')],
+        ['—', 'Divider', () => insertBlock('---\n')]
+      ];
+      document.getElementById('toolbar').innerHTML = TOOLS.map(([label, title, , cls], i) =>
+        label === '|'
+          ? '<span class="w-px h-4 bg-base-300 mx-1 shrink-0"></span>'
+          : `<button type="button" class="btn btn-ghost btn-xs min-w-7 px-1.5 font-normal shrink-0 ${cls || ''}" data-tool="${i}" title="${title}" aria-label="${title}">${UI.esc(label)}</button>`
+      ).join('');
+      document.getElementById('toolbar').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-tool]');
+        if (b) TOOLS[b.dataset.tool][2]();
+      });
+
+      editor.addEventListener('keydown', (e) => {
+        const mod = e.ctrlKey || e.metaKey;
+        if (mod && e.key.toLowerCase() === 'b') {
+          e.preventDefault();
+          wrap('**', '**', 'bold text');
+        } else if (mod && e.key.toLowerCase() === 'i') {
+          e.preventDefault();
+          wrap('_', '_', 'italic text');
+        } else if (mod && e.key.toLowerCase() === 'k') {
+          e.preventDefault();
+          TOOLS.find((t) => t[0] === 'Link')[2]();
+        } else if (e.key === 'Enter' && !e.shiftKey && !mod && editor.selectionStart === editor.selectionEnd) {
+          // Continue lists on Enter; an empty item ends the list.
+          const { selectionStart: s, value } = editor;
+          const lineStart = value.lastIndexOf('\n', s - 1) + 1;
+          const line = value.slice(lineStart, s);
+          const m = line.match(/^(\s*)([-*+] \[[ xX]\] |[-*+] |(\d+)\. |> )/);
+          if (!m) return;
+          e.preventDefault();
+          if (line.trim() === m[2].trim()) {
+            replaceRange('', lineStart, s);
+            return;
+          }
+          let marker = m[2];
+          if (m[3]) marker = `${parseInt(m[3], 10) + 1}. `;
+          if (/\[[xX]\]/.test(marker)) marker = marker.replace(/\[[xX]\]/, '[ ]');
+          replaceRange('\n' + m[1] + marker, s, s);
+        }
+      });
+
+      /* ---------- save ---------- */
+      let saving = false;
+      async function save() {
+        if (saving) return;
+        saving = true;
+        UI.clearErrors(form);
+        const btn = form.querySelector('button[type=submit]');
+        try {
+          const input = values();
+          await UI.busy(btn, async () => {
+            if (note) {
+              const res = await Notes.update(user, note.id, input);
+              UI.flash(res.changed ? 'Note saved.' : 'No changes to save.', res.changed ? 'success' : 'info');
+            } else {
+              note = await Notes.create(user, input);
+              UI.flash('Note created.');
+            }
+          });
+          clearDraft();
+          window.removeEventListener('beforeunload', guard);
+          location.href = 'note.html?id=' + encodeURIComponent(note.id);
+        } catch (err) {
+          if (!UI.showErrors(form, err)) UI.handleError(err);
+        } finally {
+          saving = false;
+        }
+      }
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        save();
+      });
+      document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+          e.preventDefault();
+          save();
+        }
+      });
+      function guard(e) {
+        if (isDirty()) {
+          e.preventDefault();
+          e.returnValue = '';
+        }
+      }
+      window.addEventListener('beforeunload', guard);
+      document.getElementById('cancel').addEventListener('click', () => clearDraft());
+
+      setMode(mode);
+      updateCounts();
+      if (!id) f.title.focus();
+    })();
+  </script>
+</body>
+</html>

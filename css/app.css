@@ -1,0 +1,474 @@
+/* Notion-style warm theme. Text/background pairs follow Notion's published
+   colour palette (light and dark); the button blue is Notion's #2383E2. */
+:root[data-theme='light'] {
+  color-scheme: light;
+  --color-base-100: #ffffff;
+  --color-base-200: #f7f6f3;
+  --color-base-300: #e9e9e7;
+  --color-base-content: #373530;
+  --color-primary: #2383e2;
+  --color-primary-content: #ffffff;
+  --color-secondary: #787774;
+  --color-secondary-content: #ffffff;
+  --color-accent: #e9f3f7;
+  --color-accent-content: #487ca5;
+  --color-neutral: #373530;
+  --color-neutral-content: #ffffff;
+  --color-info: #487ca5;
+  --color-info-content: #ffffff;
+  --color-success: #548164;
+  --color-success-content: #ffffff;
+  --color-warning: #cc782f;
+  --color-warning-content: #ffffff;
+  --color-error: #c4554d;
+  --color-error-content: #ffffff;
+  --radius-selector: 0.375rem;
+  --radius-field: 0.375rem;
+  --radius-box: 0.5rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+
+  --line: rgba(55, 53, 47, 0.09);
+  --hover: rgba(55, 53, 47, 0.06);
+  --nav-active: rgba(55, 53, 47, 0.08);
+  --soft-primary-bg: #e9f3f7;
+  --soft-primary-fg: #487ca5;
+  /* status: gray / orange / green */
+  --status-draft: #9b9a97;
+  --status-progress: #cc782f;
+  --status-done: #548164;
+  --tag-draft-bg: #f1f1ef;
+  --tag-draft-fg: #787774;
+  --tag-progress-bg: #f8ecdf;
+  --tag-progress-fg: #b5662a;
+  --tag-done-bg: #eef3ed;
+  --tag-done-fg: #487157;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --color-base-100: #191919;
+  --color-base-200: #202020;
+  --color-base-300: #2f2f2f;
+  --color-base-content: #d4d4d4;
+  --color-primary: #2383e2;
+  --color-primary-content: #ffffff;
+  --color-secondary: #9b9b9b;
+  --color-secondary-content: #191919;
+  --color-accent: #1f282d;
+  --color-accent-content: #529cca;
+  --color-neutral: #2f2f2f;
+  --color-neutral-content: #d4d4d4;
+  --color-info: #529cca;
+  --color-info-content: #191919;
+  --color-success: #4f9768;
+  --color-success-content: #191919;
+  --color-warning: #cb7b37;
+  --color-warning-content: #191919;
+  --color-error: #be524b;
+  --color-error-content: #ffffff;
+  --radius-selector: 0.375rem;
+  --radius-field: 0.375rem;
+  --radius-box: 0.5rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+
+  --line: rgba(255, 255, 255, 0.094);
+  --hover: rgba(255, 255, 255, 0.055);
+  --nav-active: rgba(255, 255, 255, 0.08);
+  --soft-primary-bg: #1f282d;
+  --soft-primary-fg: #529cca;
+  --status-draft: #7f7f7f;
+  --status-progress: #cb7b37;
+  --status-done: #4f9768;
+  --tag-draft-bg: #2f2f2f;
+  --tag-draft-fg: #9b9b9b;
+  --tag-progress-bg: #36291f;
+  --tag-progress-fg: #d08a4e;
+  --tag-done-bg: #242b26;
+  --tag-done-fg: #62a87b;
+}
+
+html,
+body {
+  font-family: 'Figtree', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Larger base size: every rem-based size (text, spacing) scales with it. */
+html {
+  font-size: 106.25%; /* 17px */
+}
+body {
+  line-height: 1.55;
+}
+/* Keep the smallest labels readable */
+.text-xs {
+  font-size: 0.8125rem;
+  line-height: 1.15rem;
+}
+.text-\[11px\] {
+  font-size: 0.75rem;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.mono {
+  font-family: 'JetBrains Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
+}
+
+/* Status dots */
+.dot {
+  display: inline-block;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.dot-Draft {
+  background: var(--status-draft);
+}
+.dot-InProgress {
+  background: var(--status-progress);
+}
+.dot-Completed {
+  background: var(--status-done);
+}
+
+.hairline {
+  border-color: var(--line);
+}
+
+/* Cards and rows */
+.note-card {
+  transition: border-color 0.12s ease;
+}
+.note-card:hover {
+  border-color: color-mix(in oklab, var(--color-base-content) 28%, transparent);
+}
+
+/* Kanban */
+.kb-col.drag-over {
+  outline: 1px dashed color-mix(in oklab, var(--color-base-content) 40%, transparent);
+  outline-offset: -1px;
+}
+.kb-card[draggable='true'] {
+  cursor: grab;
+}
+.kb-card.dragging {
+  opacity: 0.45;
+}
+
+/* Markdown editor */
+.md-editor {
+  font-family: 'JetBrains Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: 0.9rem;
+  line-height: 1.65;
+  tab-size: 2;
+  resize: vertical;
+}
+
+/* Diff */
+.diff-line {
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 0 0.75rem;
+}
+.diff-add {
+  background: color-mix(in oklab, var(--color-success) 14%, transparent);
+}
+.diff-del {
+  background: color-mix(in oklab, var(--color-error) 13%, transparent);
+}
+
+/* Rendered markdown */
+.md-body {
+  font-size: 1.0625rem;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+.md-body > :first-child {
+  margin-top: 0;
+}
+.md-body > :last-child {
+  margin-bottom: 0;
+}
+.md-body h1,
+.md-body h2,
+.md-body h3,
+.md-body h4 {
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 1.6em 0 0.6em;
+}
+.md-body h1 {
+  font-size: 1.5rem;
+}
+.md-body h2 {
+  font-size: 1.25rem;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--color-base-300);
+}
+.md-body h3 {
+  font-size: 1.075rem;
+}
+.md-body h4 {
+  font-size: 1rem;
+}
+.md-body p,
+.md-body ul,
+.md-body ol,
+.md-body pre,
+.md-body table,
+.md-body blockquote {
+  margin: 0 0 1em;
+}
+.md-body ul {
+  list-style: disc;
+  padding-left: 1.5em;
+}
+.md-body ol {
+  list-style: decimal;
+  padding-left: 1.5em;
+}
+.md-body li + li {
+  margin-top: 0.2em;
+}
+.md-body li:has(> input[type='checkbox']) {
+  list-style: none;
+  margin-left: -1.3em;
+}
+.md-body input[type='checkbox'] {
+  margin-right: 0.45em;
+  vertical-align: -1px;
+  accent-color: var(--color-base-content);
+}
+.md-body a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.md-body strong {
+  font-weight: 600;
+}
+.md-body code {
+  font-family: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+  font-size: 0.85em;
+  background: var(--color-base-200);
+  border: 1px solid var(--color-base-300);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+}
+.md-body pre {
+  background: var(--color-base-200);
+  border: 1px solid var(--color-base-300);
+  border-radius: 6px;
+  padding: 0.85em 1em;
+  overflow-x: auto;
+}
+.md-body pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: 0.82rem;
+}
+.md-body blockquote {
+  border-left: 3px solid var(--color-base-300);
+  padding-left: 1em;
+  color: color-mix(in oklab, var(--color-base-content) 70%, transparent);
+}
+.md-body table {
+  border-collapse: collapse;
+  display: block;
+  overflow-x: auto;
+}
+.md-body th,
+.md-body td {
+  border: 1px solid var(--color-base-300);
+  padding: 0.4em 0.75em;
+  text-align: left;
+}
+.md-body th {
+  background: var(--color-base-200);
+  font-weight: 600;
+}
+.md-body hr {
+  border: 0;
+  border-top: 1px solid var(--color-base-300);
+  margin: 1.5em 0;
+}
+.md-body img {
+  max-width: 100%;
+  border-radius: 6px;
+}
+
+/* Colour utilities that daisyUI's prebuilt CSS does not ship
+   (daisyUI is loaded as CSS, not as a Tailwind plugin). */
+.divide-base-300 > :not(:last-child) {
+  border-color: var(--line);
+}
+.bg-base-100\/95 {
+  background-color: color-mix(in oklab, var(--color-base-100) 95%, transparent);
+}
+.border-error\/50 {
+  border-color: color-mix(in oklab, var(--color-error) 50%, transparent);
+}
+.border-warning\/50 {
+  border-color: color-mix(in oklab, var(--color-warning) 50%, transparent);
+}
+
+/* Top navigation */
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: var(--radius-field);
+  font-size: 0.875rem;
+  color: color-mix(in oklab, var(--color-base-content) 72%, transparent);
+  transition: background-color 0.12s, color 0.12s;
+}
+.nav-link:hover {
+  background: var(--hover);
+  color: var(--color-base-content);
+}
+.nav-link.is-active {
+  background: var(--nav-active);
+  color: var(--color-base-content);
+  font-weight: 500;
+}
+
+/* Brand mark */
+.brand-mark {
+  background: var(--color-base-content);
+  color: var(--color-base-100);
+}
+
+/* Live connection dot */
+.live-dot {
+  position: relative;
+  display: inline-flex;
+  width: 0.5rem;
+  height: 0.5rem;
+}
+.live-dot::before,
+.live-dot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: var(--live-color, var(--status-done));
+}
+.live-dot::before {
+  animation: live-ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+  opacity: 0.55;
+}
+.live-dot.is-off {
+  --live-color: var(--color-warning);
+}
+.live-dot.is-off::before {
+  animation: none;
+  opacity: 0;
+}
+@keyframes live-ping {
+  75%,
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .live-dot::before {
+    animation: none;
+  }
+}
+
+/* Landing page */
+.hero-grid {
+  background-image: linear-gradient(var(--color-base-300) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-base-300) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(ellipse at 50% 0%, #000 0%, transparent 70%);
+  -webkit-mask-image: radial-gradient(ellipse at 50% 0%, #000 0%, transparent 70%);
+  opacity: 0.5;
+}
+.text-primary-strong {
+  color: var(--color-primary);
+}
+.ring-base-100 {
+  --tw-ring-color: var(--color-base-100);
+}
+.ring-primary\/15 {
+  --tw-ring-color: color-mix(in oklab, var(--color-primary) 15%, transparent);
+}
+.hover\:border-primary\/40:hover {
+  border-color: color-mix(in oklab, var(--color-primary) 40%, transparent);
+}
+
+/* Soft primary tint for icon chips and avatars */
+.soft-primary {
+  background: var(--soft-primary-bg);
+  color: var(--soft-primary-fg);
+}
+
+/* Notion-style status tags */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 1.3rem;
+  padding: 0 0.45rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+.tag-Draft {
+  background: var(--tag-draft-bg);
+  color: var(--tag-draft-fg);
+}
+.tag-InProgress {
+  background: var(--tag-progress-bg);
+  color: var(--tag-progress-fg);
+}
+.tag-Completed {
+  background: var(--tag-done-bg);
+  color: var(--tag-done-fg);
+}
+
+/* Larger touch targets on phones */
+@media (pointer: coarse) {
+  .md-body input[type='checkbox'] {
+    width: 1.15rem;
+    height: 1.15rem;
+    vertical-align: -3px;
+  }
+}
+
+/* Editor toolbar scrolls sideways instead of wrapping on small screens */
+.toolbar-scroll {
+  scrollbar-width: none;
+}
+.toolbar-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* Figtree's 500 renders light; use 600 for "medium" emphasis */
+.font-medium {
+  font-weight: 600;
+}
+/* Show code exactly as typed (no => or == ligatures) */
+.mono,
+.md-editor,
+.md-body code,
+.md-body pre {
+  font-variant-ligatures: none;
+  font-feature-settings: 'liga' 0, 'calt' 0;
+}

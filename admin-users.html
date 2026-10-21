@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Users · Notes &amp; Document Manager</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <script src="js/theme.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.7.50/daisyui.css">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.3"></script>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body class="bg-base-100 text-base-content">
+  <div id="page" hidden>
+    <h2 class="text-2xl font-semibold tracking-tight">Users</h2>
+    <p class="text-sm opacity-60 mt-1 mb-6" id="summary">&nbsp;</p>
+
+    <form id="filters" class="flex flex-wrap gap-2 mb-5" onsubmit="return false">
+      <label class="input input-sm flex-1 min-w-56">
+        <span class="opacity-50" id="search-icon"></span>
+        <input type="search" name="q" placeholder="Search name or email" autocomplete="off">
+      </label>
+      <select name="role" class="select select-sm w-auto" aria-label="Role">
+        <option value="">Any role</option>
+        <option value="User">User</option>
+        <option value="Admin">Admin</option>
+        <option value="none">No role</option>
+      </select>
+    </form>
+
+    <div class="border hairline rounded-box overflow-x-auto">
+      <table class="table table-sm">
+        <thead>
+          <tr class="text-xs">
+            <th>Name</th>
+            <th class="hidden md:table-cell">Email</th>
+            <th>Roles</th>
+            <th class="text-right">Notes</th>
+            <th class="hidden sm:table-cell">Joined</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <div class="flex justify-center mt-6" id="pager"></div>
+  </div>
+
+  <script src="js/db.js"></script>
+  <script src="js/core.js"></script>
+  <script src="js/ui.js"></script>
+  <script>
+    (async () => {
+      const admin = await UI.boot({ guard: 'admin', active: 'admin-users', title: 'Users' });
+      const form = document.getElementById('filters');
+      document.getElementById('search-icon').innerHTML = UI.icon('search');
+      const p = UI.params();
+      const state = { q: p.q || '', role: p.role || '', page: parseInt(p.page, 10) || 1 };
+      form.q.value = state.q;
+      form.role.value = state.role;
+
+      async function render() {
+        const res = await Admin.users(admin, state);
+        state.page = res.page;
+        document.getElementById('summary').textContent = `${res.total} account${res.total === 1 ? '' : 's'}`;
+        document.getElementById('rows').innerHTML = res.items.length
+          ? res.items
+              .map(
+                (u) => `<tr class="hover:bg-base-200">
+                  <td>
+                    <a class="font-medium" href="admin-user.html?id=${encodeURIComponent(u.id)}">${UI.esc(u.displayName)}</a>
+                    ${u.id === admin.id ? '<span class="text-xs opacity-50 ml-1">(you)</span>' : ''}
+                    <div class="text-xs opacity-55 md:hidden">${UI.esc(u.email)}</div>
+                  </td>
+                  <td class="hidden md:table-cell opacity-75">${UI.esc(u.email)}</td>
+                  <td>${u.roles.length ? u.roles.map((r) => `<span class="badge badge-sm badge-ghost">${r}</span>`).join(' ') : '<span class="text-xs opacity-50">none</span>'}</td>
+                  <td class="text-right tabular-nums">${u.noteCount}</td>
+                  <td class="hidden sm:table-cell opacity-60 whitespace-nowrap">${UI.formatDate(u.createdAt, false)}</td>
+                  <td class="text-right"><a class="btn btn-ghost btn-xs" href="admin-user.html?id=${encodeURIComponent(u.id)}">Manage</a></td>
+                </tr>`
+              )
+              .join('')
+          : '<tr><td colspan="6" class="text-center py-10 opacity-50">No users found</td></tr>';
+        document.getElementById('pager').innerHTML = UI.pagination(res.page, res.totalPages);
+        UI.setParams({ q: state.q, role: state.role, page: String(state.page) }, { page: '1' });
+      }
+
+      let timer;
+      form.q.addEventListener('input', () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+          state.q = form.q.value.trim();
+          state.page = 1;
+          render();
+        }, 220);
+      });
+      form.role.addEventListener('change', () => {
+        state.role = form.role.value;
+        state.page = 1;
+        render();
+      });
+      document.getElementById('pager').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-page]');
+        if (!b || b.disabled) return;
+        state.page = parseInt(b.dataset.page, 10);
+        render();
+      });
+      render();
+    })();
+  </script>
+</body>
+</html>

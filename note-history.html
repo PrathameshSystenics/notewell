@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>History · Notes &amp; Document Manager</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <script src="js/theme.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.7.50/daisyui.css">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.3"></script>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body class="bg-base-100 text-base-content">
+  <div id="page" hidden>
+    <div id="not-found" hidden class="py-24 text-center">
+      <p class="mono text-sm opacity-50">404</p>
+      <h2 class="text-lg font-semibold mt-2">Note not found</h2>
+      <p class="text-sm opacity-60 mt-1">It may have been deleted, or it isn't yours.</p>
+      <a href="notes.html" class="btn btn-sm mt-6">Back to notes</a>
+    </div>
+
+    <div id="view" hidden>
+      <div class="flex flex-wrap items-center gap-3 mb-6">
+        <a class="btn btn-ghost btn-sm btn-square" id="back" aria-label="Back to note"></a>
+        <div class="flex-1 min-w-0">
+          <h2 class="text-lg font-semibold tracking-tight truncate" id="heading"></h2>
+          <p class="text-sm opacity-60" id="sub"></p>
+        </div>
+      </div>
+
+      <div class="grid md:grid-cols-[16rem_minmax(0,1fr)] gap-6">
+        <ol class="border hairline rounded-box divide-y divide-base-300 self-start md:sticky md:top-20 max-h-[70vh] overflow-auto" id="versions"></ol>
+
+        <section class="border hairline rounded-box min-w-0">
+          <div class="flex flex-wrap items-center gap-3 px-4 py-3 border-b hairline">
+            <div class="flex-1 min-w-0">
+              <div class="font-medium text-sm" id="v-title"></div>
+              <div class="text-xs opacity-55" id="v-meta"></div>
+            </div>
+            <div class="join" id="tabs">
+              <button class="join-item btn btn-xs" data-tab="changes">Changes</button>
+              <button class="join-item btn btn-xs" data-tab="content">Content</button>
+            </div>
+            <select id="compare" class="select select-xs w-auto" aria-label="Compare with">
+              <option value="previous">vs previous</option>
+              <option value="current">vs current</option>
+            </select>
+            <button class="btn btn-xs btn-primary gap-1.5" id="restore" hidden></button>
+          </div>
+          <div id="fields" class="px-4 py-3 border-b hairline text-sm space-y-1" hidden></div>
+          <div id="panel" class="py-3 text-sm overflow-x-auto"></div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked@18.1.1/lib/marked.umd.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.4.17/dist/purify.min.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/core.js"></script>
+  <script src="js/ui.js"></script>
+  <script>
+    (async () => {
+      const id = UI.params().id || '';
+      const user = await UI.boot({ guard: 'user', active: 'notes', title: 'Version history' });
+      const cats = await Categories.list();
+      let note, versions, selected, tab = 'changes';
+
+      async function load() {
+        note = await Notes.get(user, id);
+        versions = await History.list(user, id);
+      }
+      try {
+        await load();
+      } catch (err) {
+        if (err.code === 'notfound') {
+          document.getElementById('not-found').hidden = false;
+          return;
+        }
+        throw err;
+      }
+      document.getElementById('view').hidden = false;
+      const back = document.getElementById('back');
+      back.href = 'note.html?id=' + encodeURIComponent(id);
+      back.innerHTML = UI.icon('back');
+      document.getElementById('restore').innerHTML = UI.icon('restore', 'size-3.5') + 'Restore this version';
+
+      const catName = (cid) => (cid ? (cats.find((c) => c.id === cid) || { name: 'Deleted category' }).name : 'Uncategorized');
+
+      function renderList() {
+        document.getElementById('heading').textContent = note.title;
+        document.getElementById('sub').textContent = `${versions.length} saved version${versions.length === 1 ? '' : 's'} · newest first`;
+        document.getElementById('versions').innerHTML = versions
+          .map(
+            (v, i) => `<li><button class="w-full text-left px-4 py-3 hover:bg-base-200 ${selected && selected.id === v.id ? 'bg-base-200' : ''}" data-v="${v.id}">
+              <div class="flex items-center gap-2 text-sm">
+                <span class="mono text-xs opacity-60">v${v.version}</span>
+                <span class="font-medium truncate flex-1">${UI.esc(v.action)}</span>
+                ${i === 0 ? '<span class="badge badge-xs badge-ghost">current</span>' : ''}
+              </div>
+              <div class="text-xs opacity-55 mt-0.5">${UI.formatDate(v.savedAt)}</div>
+            </button></li>`
+          )
+          .join('');
+      }
+
+      function renderDiff(base, target) {
+        const d = lineDiff(base ? base.content : '', target.content);
+        if (!d) return '<p class="px-4 opacity-60">This version is too large to compare.</p>';
+        const changed = d.some((l) => l.t !== ' ');
+        if (!changed) return '<p class="px-4 opacity-60">No changes to the content.</p>';
+        // Show changed lines with 2 lines of context; collapse long unchanged runs.
+        const keep = d.map((l, i) => l.t !== ' ' || d.slice(Math.max(0, i - 2), i + 3).some((x) => x.t !== ' '));
+        let html = '';
+        let skipped = 0;
+        d.forEach((l, i) => {
+          if (!keep[i]) {
+            skipped++;
+            return;
+          }
+          if (skipped) {
+            html += `<div class="diff-line opacity-40 text-xs py-1">··· ${skipped} unchanged line${skipped === 1 ? '' : 's'}</div>`;
+            skipped = 0;
+          }
+          const cls = l.t === '+' ? 'diff-add' : l.t === '-' ? 'diff-del' : '';
+          html += `<div class="diff-line mono text-xs leading-6 ${cls}"><span class="select-none opacity-50 inline-block w-4">${l.t === ' ' ? '' : l.t}</span>${UI.esc(l.s) || ' '}</div>`;
+        });
+        if (skipped) html += `<div class="diff-line opacity-40 text-xs py-1">··· ${skipped} unchanged line${skipped === 1 ? '' : 's'}</div>`;
+        return html;
+      }
+
+      function fieldChanges(base, target) {
+        if (!base) return '';
+        const rows = [];
+        if (base.title !== target.title) rows.push(['Title', UI.esc(base.title), UI.esc(target.title)]);
+        if (base.status !== target.status) rows.push(['Status', UI.statusBadge(base.status), UI.statusBadge(target.status)]);
+        if ((base.categoryId || null) !== (target.categoryId || null)) rows.push(['Category', UI.esc(catName(base.categoryId)), UI.esc(catName(target.categoryId))]);
+        return rows
+          .map(([k, a, b]) => `<div class="flex flex-wrap items-center gap-2"><span class="opacity-55 w-20">${k}</span><span class="opacity-60 line-through decoration-1">${a}</span><span class="opacity-40">→</span><span>${b}</span></div>`)
+          .join('');
+      }
+
+      function renderSelected() {
+        const idx = versions.findIndex((v) => v.id === selected.id);
+        const isCurrent = idx === 0;
+        const compareMode = document.getElementById('compare').value;
+        const base = compareMode === 'current' ? (isCurrent ? null : selected) : versions[idx + 1] || null;
+        const target = compareMode === 'current' ? (isCurrent ? selected : versions[0]) : selected;
+
+        document.getElementById('v-title').textContent = `v${selected.version} · ${selected.title}`;
+        document.getElementById('v-meta').innerHTML = `${UI.esc(selected.action)} · ${UI.formatDate(selected.savedAt)} · ${UI.esc(catName(selected.categoryId))} · ${STATUS_LABELS[selected.status]}`;
+        document.getElementById('restore').hidden = isCurrent;
+        document.querySelectorAll('#tabs [data-tab]').forEach((b) => b.classList.toggle('btn-active', b.dataset.tab === tab));
+        document.getElementById('compare').hidden = tab !== 'changes';
+
+        const fields = document.getElementById('fields');
+        const panel = document.getElementById('panel');
+        if (tab === 'content') {
+          fields.hidden = true;
+          panel.innerHTML = `<div class="md-body px-5 py-2">${UI.renderMarkdown(selected.content)}</div>`;
+          return;
+        }
+        if (compareMode === 'current' && isCurrent) {
+          fields.hidden = true;
+          panel.innerHTML = '<p class="px-4 opacity-60">This is the current version. Pick an older version to compare it with.</p>';
+          return;
+        }
+        if (!base) {
+          fields.hidden = true;
+          panel.innerHTML = '<p class="px-4 pb-2 opacity-60">First recorded version: everything was added.</p>' + renderDiff(null, target);
+          return;
+        }
+        const fc = fieldChanges(base, target);
+        fields.hidden = !fc;
+        fields.innerHTML = fc;
+        panel.innerHTML = renderDiff(base, target);
+      }
+
+      function select(v) {
+        selected = v;
+        renderList();
+        renderSelected();
+      }
+
+      document.getElementById('versions').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-v]');
+        if (b) select(versions.find((v) => v.id === b.dataset.v));
+      });
+      document.getElementById('tabs').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-tab]');
+        if (!b) return;
+        tab = b.dataset.tab;
+        renderSelected();
+      });
+      document.getElementById('compare').addEventListener('change', renderSelected);
+      document.getElementById('restore').addEventListener('click', async () => {
+        const ok = await UI.confirm({
+          title: `Restore version ${selected.version}?`,
+          body: 'The note will be updated to match this version. Your current version stays in the history, so nothing is lost.',
+          confirmText: 'Restore'
+        });
+        if (!ok) return;
+        try {
+          const res = await History.restore(user, id, selected.id);
+          await load();
+          UI.toast(res.changed ? `Restored v${selected.version}.` : 'That version matches the current note.', 'success');
+          select(versions[0]);
+        } catch (err) {
+          UI.handleError(err);
+        }
+      });
+
+      const requested = UI.params().v;
+      select(versions.find((v) => v.id === requested) || versions[0]);
+    })();
+  </script>
+</body>
+</html>

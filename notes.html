@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My notes · Notes &amp; Document Manager</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <script src="js/theme.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.7.50/daisyui.css">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.3"></script>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body class="bg-base-100 text-base-content">
+  <div id="page" hidden>
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+      <div>
+        <h2 class="text-2xl font-semibold tracking-tight">My notes</h2>
+        <p class="text-sm opacity-60 mt-0.5" id="summary">&nbsp;</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="join" role="group" aria-label="View" id="views"></div>
+        <a href="note-edit.html" class="btn btn-primary btn-sm gap-2 sm:hidden" id="new-btn"></a>
+      </div>
+    </div>
+
+    <form id="filters" class="flex flex-wrap gap-2 mb-6" role="search" onsubmit="return false">
+      <label class="input input-sm flex-1 min-w-56 max-sm:basis-full">
+        <span class="opacity-50" id="search-icon"></span>
+        <input type="search" name="q" placeholder="Search title and content" autocomplete="off">
+        <kbd class="kbd kbd-xs opacity-60 hidden sm:inline-flex">/</kbd>
+      </label>
+      <select name="categoryId" class="select select-sm w-auto max-sm:flex-1 max-sm:min-w-[9rem]" aria-label="Category"></select>
+      <select name="status" class="select select-sm w-auto max-sm:flex-1 max-sm:min-w-[9rem]" aria-label="Status">
+        <option value="">Any status</option>
+      </select>
+      <select name="sort" class="select select-sm w-auto max-sm:flex-1 max-sm:min-w-[9rem]" aria-label="Sort">
+        <option value="updated_desc">Last updated</option>
+        <option value="updated_asc">Least recently updated</option>
+        <option value="created_desc">Newest first</option>
+        <option value="created_asc">Oldest first</option>
+        <option value="title_asc">Title A–Z</option>
+        <option value="title_desc">Title Z–A</option>
+      </select>
+      <button type="button" class="btn btn-sm btn-ghost" id="reset" hidden>Clear filters</button>
+    </form>
+
+    <div id="results"></div>
+    <div class="flex justify-center mt-8" id="pager"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked@18.1.1/lib/marked.umd.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.4.17/dist/purify.min.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/core.js"></script>
+  <script src="js/ui.js"></script>
+  <script>
+    (async () => {
+      const user = await UI.boot({ guard: 'user', active: 'notes', title: 'My notes' });
+      const cats = await Categories.list();
+      const form = document.getElementById('filters');
+      const results = document.getElementById('results');
+      const pager = document.getElementById('pager');
+
+      document.getElementById('new-btn').innerHTML = UI.icon('plus') + 'New note';
+      document.getElementById('search-icon').innerHTML = UI.icon('search');
+      form.categoryId.innerHTML =
+        '<option value="">All categories</option><option value="none">Uncategorized</option>' +
+        cats.map((c) => `<option value="${c.id}">${UI.esc(c.name)}</option>`).join('');
+      form.status.innerHTML += STATUSES.map((s) => `<option value="${s}">${STATUS_LABELS[s]}</option>`).join('');
+
+      const VIEWS = [
+        ['grid', 'grid', 'Grid'],
+        ['list', 'list', 'List'],
+        ['board', 'board', 'Board']
+      ];
+      let savedView = 'grid';
+      try {
+        savedView = localStorage.getItem('ndm.view') || 'grid';
+      } catch (_) {}
+
+      const p = UI.params();
+      const state = {
+        q: p.q || '',
+        categoryId: p.categoryId || '',
+        status: STATUSES.includes(p.status) ? p.status : '',
+        sort: Notes.sorts.includes(p.sort) ? p.sort : 'updated_desc',
+        page: parseInt(p.page, 10) || 1,
+        view: VIEWS.some((v) => v[0] === p.view) ? p.view : savedView
+      };
+      form.q.value = state.q;
+      form.categoryId.value = cats.some((c) => c.id === state.categoryId) || state.categoryId === 'none' ? state.categoryId : '';
+      form.status.value = state.status;
+      form.sort.value = state.sort;
+
+      function renderViews() {
+        document.getElementById('views').innerHTML = VIEWS.map(
+          ([key, ic, label]) =>
+            `<button type="button" class="join-item btn btn-sm btn-square ${state.view === key ? 'btn-active' : 'btn-ghost border hairline'}" data-view="${key}" title="${label} view" aria-label="${label} view" aria-pressed="${state.view === key}">${UI.icon(ic)}</button>`
+        ).join('');
+      }
+
+      const href = (n) => 'note.html?id=' + encodeURIComponent(n.id);
+      const meta = (n, counts) => `
+        <span class="truncate">${UI.esc(UI.categoryText(cats, n.categoryId))}</span>
+        ${counts[n.id] ? `<span class="flex items-center gap-1">${UI.icon('paperclip', 'size-3')}${counts[n.id]}</span>` : ''}
+        <span class="ml-auto whitespace-nowrap">${UI.relTime(n.updatedAt)}</span>`;
+      const pinBtn = (n) =>
+        `<button type="button" class="btn btn-ghost btn-xs btn-square relative z-10 ${n.pinned ? '' : 'opacity-0 group-hover:opacity-60 focus:opacity-60 max-sm:hidden'}" data-pin="${n.id}" title="${n.pinned ? 'Unpin' : 'Pin'}" aria-label="${n.pinned ? 'Unpin note' : 'Pin note'}">${UI.icon('pin', 'size-3.5')}</button>`;
+
+      function gridView(items, counts) {
+        return `<div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">${items
+          .map(
+            (n) => `<article class="note-card group relative border hairline rounded-box p-4 flex flex-col min-h-40 bg-base-100">
+              <div class="flex items-start gap-2">
+                <h3 class="font-medium leading-snug flex-1 line-clamp-2"><a href="${href(n)}" class="after:absolute after:inset-0">${UI.esc(n.title)}</a></h3>
+                ${pinBtn(n)}
+              </div>
+              <p class="text-sm opacity-60 mt-2 line-clamp-3 flex-1">${UI.esc(Util.excerpt(n.content)) || '<span class="italic">No content</span>'}</p>
+              <div class="mt-4">${UI.statusBadge(n.status)}</div>
+              <div class="flex items-center gap-3 text-xs opacity-55 mt-3 pt-3 border-t hairline">${meta(n, counts)}</div>
+            </article>`
+          )
+          .join('')}</div>`;
+      }
+
+      function listView(items, counts) {
+        return `<ul class="border hairline rounded-box divide-y divide-base-300">${items
+          .map(
+            (n) => `<li class="group relative flex items-center gap-4 px-4 py-3 hover:bg-base-200 transition-colors">
+              <div class="flex-1 min-w-0">
+                <div class="font-medium text-sm truncate flex items-center gap-2"><span class="sm:hidden inline-flex" title="${STATUS_LABELS[n.status]}"><span class="dot dot-${n.status}"></span></span>${n.pinned ? UI.icon('pin', 'size-3 opacity-50') : ''}<a href="${href(n)}" class="after:absolute after:inset-0">${UI.esc(n.title)}</a></div>
+                <div class="text-xs opacity-55 truncate mt-0.5">${UI.esc(Util.excerpt(n.content, 140)) || 'No content'}</div>
+              </div>
+              <span class="text-xs opacity-60 w-28 truncate hidden md:block">${UI.esc(UI.categoryText(cats, n.categoryId))}</span>
+              <span class="w-28 hidden sm:block">${UI.statusBadge(n.status)}</span>
+              <span class="text-xs opacity-50 w-16 text-right hidden sm:flex items-center justify-end gap-1">${counts[n.id] ? UI.icon('paperclip', 'size-3') + counts[n.id] : ''}</span>
+              <span class="text-xs opacity-50 w-20 text-right whitespace-nowrap">${UI.relTime(n.updatedAt)}</span>
+              ${pinBtn(n)}
+            </li>`
+          )
+          .join('')}</ul>`;
+      }
+
+      function boardView(items, counts) {
+        return `<div class="grid md:grid-cols-3 gap-4 items-start">${STATUSES.map((s, i) => {
+          const col = items.filter((n) => n.status === s);
+          return `<section class="kb-col bg-base-200 rounded-box p-2.5 min-h-60" data-status="${s}">
+            <header class="flex items-center gap-2 px-1.5 pt-1 pb-3 text-sm">
+              <span class="dot dot-${s}"></span><span class="font-medium">${STATUS_LABELS[s]}</span>
+              <span class="opacity-50 tabular-nums">${col.length}</span>
+            </header>
+            <div class="space-y-2" data-drop>
+              ${
+                col
+                  .map(
+                    (n) => `<article class="kb-card note-card group relative bg-base-100 border hairline rounded-box p-3" draggable="true" data-id="${n.id}">
+                      <div class="flex items-start gap-2">
+                        <a href="${href(n)}" class="text-sm font-medium leading-snug flex-1 line-clamp-2">${UI.esc(n.title)}</a>
+                        ${n.pinned ? UI.icon('pin', 'size-3 opacity-50 mt-1') : ''}
+                      </div>
+                      <p class="text-xs opacity-55 line-clamp-2 mt-1.5">${UI.esc(Util.excerpt(n.content, 110))}</p>
+                      <div class="flex items-center gap-2 text-xs opacity-60 mt-3">
+                        <span class="truncate">${UI.esc(UI.categoryText(cats, n.categoryId))}</span>
+                        ${counts[n.id] ? `<span class="flex items-center gap-1">${UI.icon('paperclip', 'size-3')}${counts[n.id]}</span>` : ''}
+                        <span class="ml-auto flex">
+                          ${i > 0 ? `<button class="btn btn-ghost btn-xs btn-square" data-move="${n.id}" data-to="${STATUSES[i - 1]}" title="Move to ${STATUS_LABELS[STATUSES[i - 1]]}">${UI.icon('left', 'size-3.5')}</button>` : ''}
+                          ${i < 2 ? `<button class="btn btn-ghost btn-xs btn-square" data-move="${n.id}" data-to="${STATUSES[i + 1]}" title="Move to ${STATUS_LABELS[STATUSES[i + 1]]}">${UI.icon('right', 'size-3.5')}</button>` : ''}
+                        </span>
+                      </div>
+                    </article>`
+                  )
+                  .join('') || '<p class="text-xs opacity-40 text-center py-6">Drop notes here</p>'
+              }
+            </div>
+          </section>`;
+        }).join('')}</div>`;
+      }
+
+      function emptyState(hasFilters) {
+        return `<div class="border border-dashed hairline rounded-box py-16 text-center">
+          <p class="font-medium">${hasFilters ? 'No notes match these filters' : 'No notes yet'}</p>
+          <p class="text-sm opacity-60 mt-1">${hasFilters ? 'Try a different search or clear the filters.' : 'Notes support Markdown, attachments and full history.'}</p>
+          ${hasFilters ? '<button class="btn btn-sm mt-5" data-reset>Clear filters</button>' : '<a class="btn btn-sm btn-primary mt-5" href="note-edit.html">Create a note</a>'}
+        </div>`;
+      }
+
+      async function render() {
+        const board = state.view === 'board';
+        form.status.hidden = board;
+        const res = await Notes.query(user, {
+          q: state.q,
+          categoryId: state.categoryId,
+          status: board ? '' : state.status,
+          sort: state.sort,
+          page: state.page,
+          all: board
+        });
+        state.page = res.page;
+        const counts = await Notes.attachmentCounts(user);
+        const hasFilters = !!(state.q || state.categoryId || (!board && state.status));
+        document.getElementById('reset').hidden = !hasFilters;
+        document.getElementById('summary').textContent =
+          `${res.total} ${res.total === 1 ? 'note' : 'notes'}` + (hasFilters ? ' match' : '') + (res.totalPages > 1 ? ` · page ${res.page} of ${res.totalPages}` : '');
+
+        if (!res.total && !board) results.innerHTML = emptyState(hasFilters);
+        else results.innerHTML = state.view === 'list' ? listView(res.items, counts) : board ? boardView(res.items, counts) : gridView(res.items, counts);
+        pager.innerHTML = UI.pagination(res.page, res.totalPages);
+        UI.setParams(
+          { q: state.q, categoryId: state.categoryId, status: state.status, sort: state.sort, page: String(state.page), view: state.view },
+          { sort: 'updated_desc', page: '1' }
+        );
+        renderViews();
+      }
+
+      function reset() {
+        Object.assign(state, { q: '', categoryId: '', status: '', page: 1 });
+        form.q.value = '';
+        form.categoryId.value = '';
+        form.status.value = '';
+        render();
+      }
+
+      // Events
+      let timer;
+      form.q.addEventListener('input', () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+          state.q = form.q.value.trim();
+          state.page = 1;
+          render();
+        }, 220);
+      });
+      ['categoryId', 'status', 'sort'].forEach((name) =>
+        form[name].addEventListener('change', () => {
+          state[name] = form[name].value;
+          state.page = 1;
+          render();
+        })
+      );
+      document.getElementById('reset').onclick = reset;
+      document.getElementById('views').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-view]');
+        if (!b) return;
+        state.view = b.dataset.view;
+        try {
+          localStorage.setItem('ndm.view', state.view);
+        } catch (_) {}
+        render();
+      });
+      pager.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-page]');
+        if (!b || b.disabled) return;
+        state.page = parseInt(b.dataset.page, 10);
+        render();
+        window.scrollTo({ top: 0 });
+      });
+
+      results.addEventListener('click', async (e) => {
+        if (e.target.closest('[data-reset]')) return reset();
+        const pin = e.target.closest('[data-pin]');
+        if (pin) {
+          e.preventDefault();
+          try {
+            const n = await Notes.togglePin(user, pin.dataset.pin);
+            UI.toast(n.pinned ? 'Pinned' : 'Unpinned', 'success', { duration: 1600 });
+            render();
+          } catch (err) {
+            UI.handleError(err);
+          }
+          return;
+        }
+        const move = e.target.closest('[data-move]');
+        if (move) {
+          e.preventDefault();
+          try {
+            await Notes.setStatus(user, move.dataset.move, move.dataset.to);
+            render();
+          } catch (err) {
+            UI.handleError(err);
+          }
+        }
+      });
+
+      // Board drag and drop
+      results.addEventListener('dragstart', (e) => {
+        const card = e.target.closest('.kb-card');
+        if (!card) return;
+        e.dataTransfer.setData('text/plain', card.dataset.id);
+        e.dataTransfer.effectAllowed = 'move';
+        card.classList.add('dragging');
+      });
+      results.addEventListener('dragend', (e) => {
+        const card = e.target.closest('.kb-card');
+        if (card) card.classList.remove('dragging');
+        results.querySelectorAll('.drag-over').forEach((c) => c.classList.remove('drag-over'));
+      });
+      results.addEventListener('dragover', (e) => {
+        const col = e.target.closest('.kb-col');
+        if (!col) return;
+        e.preventDefault();
+        results.querySelectorAll('.drag-over').forEach((c) => c !== col && c.classList.remove('drag-over'));
+        col.classList.add('drag-over');
+      });
+      results.addEventListener('drop', async (e) => {
+        const col = e.target.closest('.kb-col');
+        if (!col) return;
+        e.preventDefault();
+        col.classList.remove('drag-over');
+        const id = e.dataTransfer.getData('text/plain');
+        if (!id) return;
+        try {
+          const res = await Notes.setStatus(user, id, col.dataset.status);
+          if (res.changed) render();
+        } catch (err) {
+          UI.handleError(err);
+        }
+      });
+
+      // Keyboard: "/" search, "n" new note
+      document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+        const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+        if (e.key === '/' && !typing) {
+          e.preventDefault();
+          form.q.focus();
+        } else if (e.key === 'n' && !typing) {
+          location.href = 'note-edit.html';
+        } else if (e.key === 'Escape' && document.activeElement === form.q) {
+          form.q.blur();
+        }
+      });
+
+      // Another tab changed a status: refresh.
+      document.addEventListener('ndm:notification', render);
+      await render();
+    })();
+  </script>
+</body>
+</html>

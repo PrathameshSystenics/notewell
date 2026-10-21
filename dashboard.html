@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard · Notes &amp; Document Manager</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <script src="js/theme.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.7.50/daisyui.css">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.3"></script>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body class="bg-base-100 text-base-content">
+  <div id="page" hidden>
+    <div class="flex flex-wrap items-end justify-between gap-4 mb-8">
+      <div>
+        <h2 class="text-2xl font-semibold tracking-tight" id="greeting">Hello</h2>
+        <p class="text-sm opacity-60 mt-1">Here is where your notes stand.</p>
+      </div>
+      <a href="note-edit.html" class="btn btn-primary btn-sm gap-2 sm:hidden" id="new-btn"></a>
+    </div>
+
+    <div class="grid grid-cols-2 md:grid-cols-4 border hairline rounded-box divide-x divide-y md:divide-y-0 divide-base-300 overflow-hidden" id="stats"></div>
+
+    <div class="grid lg:grid-cols-3 gap-8 mt-10">
+      <section class="lg:col-span-2 min-w-0">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-medium">Recently updated</h3>
+          <a href="notes.html" class="text-sm opacity-60 hover:opacity-100 py-1.5">View all</a>
+        </div>
+        <ul class="border hairline rounded-box divide-y divide-base-300" id="recent"></ul>
+      </section>
+      <section class="min-w-0">
+        <h3 class="text-sm font-medium mb-3">Pinned</h3>
+        <div class="space-y-2" id="pinned"></div>
+        <h3 class="text-sm font-medium mb-3 mt-8">Progress</h3>
+        <div id="progress"></div>
+      </section>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked@18.1.1/lib/marked.umd.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.4.17/dist/purify.min.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/core.js"></script>
+  <script src="js/ui.js"></script>
+  <script>
+    (async () => {
+      const user = await UI.boot({ guard: 'user', active: 'dashboard', title: 'Dashboard' });
+      document.getElementById('new-btn').innerHTML = UI.icon('plus') + 'New note';
+      const hour = new Date().getHours();
+      const part = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+      document.getElementById('greeting').textContent = `${part}, ${user.displayName.split(' ')[0]}`;
+
+      async function render() {
+        const [stats, cats] = await Promise.all([Notes.stats(user), Categories.list()]);
+        const cell = (label, value, href, status) => `
+          <a href="${href}" class="block p-5 hover:bg-base-200 transition-colors">
+            <div class="text-xs opacity-60 flex items-center gap-1.5">${status ? `<span class="dot dot-${status}"></span>` : ''}${label}</div>
+            <div class="text-2xl font-semibold mt-1 tabular-nums">${value}</div>
+          </a>`;
+        document.getElementById('stats').innerHTML =
+          cell('All notes', stats.total, 'notes.html') +
+          STATUSES.map((s) => cell(STATUS_LABELS[s], stats.byStatus[s], 'notes.html?status=' + s, s)).join('');
+
+        const recent = document.getElementById('recent');
+        recent.innerHTML = stats.recent.length
+          ? stats.recent
+              .map(
+                (n) => `<li><a href="note.html?id=${encodeURIComponent(n.id)}" class="flex items-center gap-4 px-4 py-3 hover:bg-base-200 transition-colors">
+                  <div class="flex-1 min-w-0">
+                    <div class="font-medium text-sm truncate">${UI.esc(n.title)}</div>
+                    <div class="text-xs opacity-55 truncate mt-0.5">${UI.esc(UI.categoryText(cats, n.categoryId))} · ${UI.esc(Util.excerpt(n.content, 90) || 'No content')}</div>
+                  </div>
+                  <span class="hidden sm:inline-flex">${UI.statusBadge(n.status)}</span><span class="sm:hidden inline-flex" title="${STATUS_LABELS[n.status]}"><span class="dot dot-${n.status}"></span></span>
+                  <span class="text-xs opacity-50 w-16 text-right hidden sm:block">${UI.relTime(n.updatedAt)}</span>
+                </a></li>`
+              )
+              .join('')
+          : `<li class="px-4 py-10 text-center text-sm opacity-60">No notes yet. <a class="link" href="note-edit.html">Write your first note</a>.</li>`;
+
+        document.getElementById('pinned').innerHTML = stats.pinned.length
+          ? stats.pinned
+              .map(
+                (n) => `<a href="note.html?id=${encodeURIComponent(n.id)}" class="note-card block border hairline rounded-box p-3">
+                  <div class="text-sm font-medium truncate flex items-center gap-2">${UI.icon('pin', 'size-3.5 opacity-50')}${UI.esc(n.title)}</div>
+                  <div class="text-xs opacity-55 line-clamp-2 mt-1">${UI.esc(Util.excerpt(n.content, 120))}</div>
+                </a>`
+              )
+              .join('')
+          : '<p class="text-sm opacity-50">Pin important notes from the notes list to keep them here.</p>';
+
+        const pct = stats.total ? Math.round((stats.byStatus.Completed / stats.total) * 100) : 0;
+        document.getElementById('progress').innerHTML = `
+          <div class="flex h-2 rounded-full overflow-hidden bg-base-200">
+            ${STATUSES.map((s) => (stats.total ? `<div class="dot-${s}" style="width:${(stats.byStatus[s] / stats.total) * 100}%"></div>` : '')).join('')}
+          </div>
+          <p class="text-xs opacity-60 mt-2">${pct}% of notes completed</p>`;
+      }
+      await render();
+      document.addEventListener('ndm:notification', render);
+    })();
+  </script>
+</body>
+</html>

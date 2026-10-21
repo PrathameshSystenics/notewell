@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in · Notes &amp; Document Manager</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <script src="js/theme.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.7.50/daisyui.css">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.3"></script>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body class="bg-base-200 text-base-content min-h-screen">
+  <div id="page" hidden class="min-h-screen flex flex-col">
+    <div data-public-header></div>
+    <div class="flex-1 grid place-items-center px-4 py-12 md:py-16">
+      <div class="w-full max-w-sm">
+        <div class="mb-8">
+          <h1 class="text-xl font-semibold tracking-tight">Sign in</h1>
+          <p class="text-sm opacity-60 mt-1">Welcome back to Notes &amp; Document Manager.</p>
+        </div>
+
+        <form id="login-form" class="bg-base-100 border hairline rounded-box p-6 space-y-4" novalidate>
+          <div id="form-error" class="text-sm text-error" role="alert" hidden></div>
+          <div>
+            <label class="block text-sm mb-1.5" for="email">Email</label>
+            <input id="email" name="email" type="email" class="input w-full" autocomplete="username" required autofocus>
+          </div>
+          <div>
+            <label class="block text-sm mb-1.5" for="password">Password</label>
+            <input id="password" name="password" type="password" class="input w-full" autocomplete="current-password" required>
+          </div>
+          <button class="btn btn-primary w-full" type="submit">Sign in</button>
+        </form>
+
+        <p class="text-sm text-center mt-5 opacity-70">No account? <a href="register.html" class="link font-medium">Create one</a></p>
+
+        <details class="mt-8 text-xs border hairline rounded-box bg-base-100">
+          <summary class="cursor-pointer px-4 py-2.5 opacity-70">Development accounts</summary>
+          <div class="px-4 pb-3 space-y-2" id="dev-accounts"></div>
+        </details>
+      </div>
+    </div>
+    <div data-footer-slot></div>
+  </div>
+
+  <script src="js/db.js"></script>
+  <script src="js/core.js"></script>
+  <script src="js/ui.js"></script>
+  <script>
+    (async () => {
+      const user = await UI.bootPublic();
+      const returnUrl = Auth.safeReturnUrl(UI.params().returnUrl);
+      if (user) {
+        location.replace(returnUrl || Auth.homeFor(user));
+        return;
+      }
+
+      const devBox = document.getElementById('dev-accounts');
+      devBox.innerHTML = Seed.devAccounts
+        .map(
+          (a) => `<button type="button" class="w-full text-left flex items-center justify-between gap-3 py-1.5 hover:opacity-100 opacity-80" data-email="${a.email}" data-password="${a.password}">
+            <span class="mono">${a.email}</span><span class="badge badge-ghost badge-sm">${a.role}</span></button>`
+        )
+        .join('') + '<p class="opacity-50 pt-1">Click to fill. The admin password must be changed at first sign-in.</p>';
+      devBox.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-email]');
+        if (!b) return;
+        form.email.value = b.dataset.email;
+        form.password.value = b.dataset.password;
+        form.password.focus();
+      });
+
+      const form = document.getElementById('login-form');
+      const errorBox = document.getElementById('form-error');
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        errorBox.hidden = true;
+        const btn = form.querySelector('button[type=submit]');
+        try {
+          const u = await UI.busy(btn, () => Auth.login(form.email.value, form.password.value));
+          location.replace(u.mustChangePassword ? 'account.html?force=1' : returnUrl || Auth.homeFor(u));
+        } catch (err) {
+          errorBox.textContent = err instanceof AppError ? err.message : 'Sign in failed. Please try again.';
+          errorBox.hidden = false;
+          form.password.value = '';
+          form.password.focus();
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

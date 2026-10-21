@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Note · Notes &amp; Document Manager</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <script src="js/theme.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.7.50/daisyui.css">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.3"></script>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body class="bg-base-100 text-base-content">
+  <div id="page" hidden>
+    <div id="not-found" hidden class="py-24 text-center">
+      <p class="mono text-sm opacity-50">404</p>
+      <h2 class="text-lg font-semibold mt-2">Note not found</h2>
+      <p class="text-sm opacity-60 mt-1">It may have been deleted, or it isn't yours.</p>
+      <a href="notes.html" class="btn btn-sm mt-6">Back to notes</a>
+    </div>
+
+    <div id="view" hidden>
+      <div class="flex flex-wrap items-center gap-2 mb-6">
+        <a href="notes.html" class="btn btn-ghost btn-sm gap-2 -ml-2" id="back"></a>
+        <div class="basis-full h-0 sm:basis-auto sm:h-auto sm:flex-1"></div>
+        <select id="status" class="select select-sm flex-1 min-w-0 sm:flex-none sm:w-36" aria-label="Status"></select>
+        <button class="btn btn-ghost btn-sm btn-square" id="pin" aria-label="Pin"></button>
+        <a class="btn btn-ghost btn-sm gap-2" id="history-link"></a>
+        <a class="btn btn-primary btn-sm gap-2" id="edit-link"></a>
+        <div class="dropdown dropdown-end">
+          <button tabindex="0" class="btn btn-ghost btn-sm btn-square" aria-label="More actions" id="more-btn"></button>
+          <ul tabindex="0" class="dropdown-content menu z-20 mt-2 w-48 bg-base-100 border hairline rounded-box shadow-sm p-1.5 text-sm">
+            <li><button id="export-md"></button></li>
+            <li><button id="delete" class="text-error"></button></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="grid lg:grid-cols-[minmax(0,1fr)_18rem] gap-10">
+        <article class="min-w-0">
+          <h2 class="text-3xl font-semibold tracking-tight leading-tight break-words" id="title"></h2>
+          <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm opacity-60 mt-3" id="meta"></div>
+          <div class="border-t hairline mt-6 pt-6 md-body" id="content"></div>
+        </article>
+
+        <aside class="space-y-8">
+          <section>
+            <h3 class="text-xs uppercase tracking-wider opacity-50 mb-3">Details</h3>
+            <dl class="text-sm grid grid-cols-[6rem_1fr] gap-y-2" id="details"></dl>
+          </section>
+
+          <section>
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-xs uppercase tracking-wider opacity-50">Attachments</h3>
+              <span class="text-xs opacity-50" id="att-count"></span>
+            </div>
+            <ul class="space-y-1 mb-3" id="attachments"></ul>
+            <label id="dropzone" class="flex flex-col items-center justify-center gap-1 border border-dashed hairline rounded-box px-4 py-5 text-center cursor-pointer hover:bg-base-200 transition-colors">
+              <span class="opacity-60" id="upload-icon"></span>
+              <span class="text-sm">Add files</span>
+              <span class="text-xs opacity-50" id="upload-hint"></span>
+              <input type="file" id="file" class="sr-only" multiple>
+            </label>
+            <div id="upload-progress" class="text-xs opacity-60 mt-2" hidden></div>
+          </section>
+        </aside>
+      </div>
+    </div>
+
+    <dialog id="image-modal" class="modal">
+      <div class="modal-box max-w-4xl p-3 border hairline">
+        <div class="flex items-center justify-between gap-3 px-1 pb-3">
+          <span class="text-sm font-medium truncate" id="image-name"></span>
+          <form method="dialog"><button class="btn btn-ghost btn-sm btn-square" aria-label="Close" id="image-close"></button></form>
+        </div>
+        <img id="image-preview" alt="" class="w-full max-h-[75vh] object-contain rounded bg-base-200">
+      </div>
+      <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked@18.1.1/lib/marked.umd.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.4.17/dist/purify.min.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/core.js"></script>
+  <script src="js/ui.js"></script>
+  <script>
+    (async () => {
+      const id = UI.params().id || '';
+      const user = await UI.boot({ guard: 'user', active: 'notes', title: 'Note' });
+      const cats = await Categories.list();
+      let note;
+
+      try {
+        note = await Notes.get(user, id);
+      } catch (err) {
+        if (err.code === 'notfound') {
+          document.getElementById('not-found').hidden = false;
+          return;
+        }
+        throw err;
+      }
+      document.getElementById('view').hidden = false;
+
+      // Static labels
+      document.getElementById('back').innerHTML = UI.icon('back') + 'Notes';
+      document.getElementById('history-link').innerHTML = UI.icon('history') + '<span class="hidden sm:inline">History</span>';
+      document.getElementById('edit-link').innerHTML = UI.icon('edit') + 'Edit';
+      document.getElementById('more-btn').innerHTML = UI.icon('more');
+      document.getElementById('export-md').innerHTML = UI.icon('download') + 'Export as Markdown';
+      document.getElementById('delete').innerHTML = UI.icon('trash') + 'Delete note';
+      document.getElementById('upload-icon').innerHTML = UI.icon('upload', 'size-5');
+      document.getElementById('upload-hint').textContent = `PDF or image · up to ${Util.formatBytes(Config.FILE_MAX_BYTES)}`;
+      document.getElementById('image-close').innerHTML = UI.icon('x');
+      document.getElementById('file').accept = Attachments.accept;
+      const statusSel = document.getElementById('status');
+      statusSel.innerHTML = STATUSES.map((s) => `<option value="${s}">${STATUS_LABELS[s]}</option>`).join('');
+
+      function render() {
+        document.title = note.title + ' · ' + Config.APP_NAME;
+        document.getElementById('title').textContent = note.title;
+        document.getElementById('meta').innerHTML = `
+          ${UI.statusBadge(note.status)}
+          <span>${UI.esc(UI.categoryText(cats, note.categoryId))}</span>
+          <span>·</span><span title="${UI.esc(UI.formatDate(note.updatedAt))}">Updated ${UI.relTime(note.updatedAt)}</span>`;
+        const content = document.getElementById('content');
+        content.innerHTML = UI.renderMarkdown(note.content);
+        // Task-list checkboxes are clickable and save straight to the note.
+        content.querySelectorAll('input[type=checkbox]').forEach((cb, i) => {
+          cb.disabled = false;
+          cb.dataset.index = i;
+          cb.setAttribute('aria-label', 'Toggle task');
+        });
+        statusSel.value = note.status;
+        const pin = document.getElementById('pin');
+        pin.innerHTML = UI.icon('pin');
+        pin.classList.toggle('btn-active', !!note.pinned);
+        pin.title = note.pinned ? 'Unpin' : 'Pin';
+        document.getElementById('edit-link').href = 'note-edit.html?id=' + encodeURIComponent(note.id);
+        document.getElementById('history-link').href = 'note-history.html?id=' + encodeURIComponent(note.id);
+        const words = Util.wordCount(note.content);
+        const row = (k, v) => `<dt class="opacity-55">${k}</dt><dd class="min-w-0 break-words">${v}</dd>`;
+        document.getElementById('details').innerHTML =
+          row('Status', UI.statusBadge(note.status)) +
+          row('Category', UI.esc(UI.categoryText(cats, note.categoryId))) +
+          row('Created', UI.formatDate(note.createdAt)) +
+          row('Updated', UI.formatDate(note.updatedAt)) +
+          row('Version', `<a class="link" href="note-history.html?id=${encodeURIComponent(note.id)}">v${note.version || 1}</a>`) +
+          row('Length', `${words} ${words === 1 ? 'word' : 'words'}`);
+      }
+
+      async function reload() {
+        note = await Notes.get(user, id);
+        render();
+      }
+
+      /* ---------- status, pin, checklist ---------- */
+      statusSel.addEventListener('change', async () => {
+        try {
+          const res = await Notes.setStatus(user, note.id, statusSel.value);
+          note = res.note;
+          render();
+        } catch (err) {
+          statusSel.value = note.status;
+          UI.handleError(err);
+        }
+      });
+
+      document.getElementById('pin').addEventListener('click', async () => {
+        try {
+          note = await Notes.togglePin(user, note.id);
+          render();
+          UI.toast(note.pinned ? 'Pinned' : 'Unpinned', 'success', { duration: 1600 });
+        } catch (err) {
+          UI.handleError(err);
+        }
+      });
+
+      document.getElementById('content').addEventListener('change', async (e) => {
+        const cb = e.target.closest('input[type=checkbox][data-index]');
+        if (!cb) return;
+        const target = parseInt(cb.dataset.index, 10);
+        let i = -1;
+        let inFence = false;
+        const lines = note.content.split('\n').map((line) => {
+          if (/^\s*(```|~~~)/.test(line)) inFence = !inFence;
+          if (inFence) return line;
+          return line.replace(/^(\s*(?:[-*+]|\d+\.)\s+)\[( |x|X)\]/, (m, pre, mark) => {
+            i++;
+            if (i !== target) return m;
+            return pre + (mark === ' ' ? '[x]' : '[ ]');
+          });
+        });
+        try {
+          const res = await Notes.update(user, note.id, { ...note, content: lines.join('\n') }, 'Checklist updated');
+          note = res.note;
+          render();
+        } catch (err) {
+          UI.handleError(err);
+          render();
+        }
+      });
+
+      /* ---------- export & delete ---------- */
+      document.getElementById('export-md').addEventListener('click', () => {
+        const slug = note.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'note';
+        UI.download(new Blob([`# ${note.title}\n\n${note.content}\n`], { type: 'text/markdown' }), slug + '.md');
+        document.activeElement.blur();
+      });
+
+      document.getElementById('delete').addEventListener('click', async () => {
+        document.activeElement.blur();
+        const atts = await Attachments.list(user, note.id);
+        const ok = await UI.confirm({
+          title: 'Delete this note?',
+          body: `<strong>${UI.esc(note.title)}</strong> will be permanently deleted${
+            atts.length ? `, along with ${atts.length} attachment${atts.length === 1 ? '' : 's'}` : ''
+          } and its version history. This cannot be undone.`,
+          confirmText: 'Delete note',
+          danger: true
+        });
+        if (!ok) return;
+        try {
+          await Notes.remove(user, note.id);
+          UI.flash('Note deleted.');
+          location.href = 'notes.html';
+        } catch (err) {
+          UI.handleError(err);
+        }
+      });
+
+      /* ---------- attachments ---------- */
+      const list = document.getElementById('attachments');
+      async function renderAttachments() {
+        const atts = await Attachments.list(user, note.id);
+        document.getElementById('att-count').textContent = atts.length ? atts.length : '';
+        list.innerHTML = atts.length
+          ? atts
+              .map(
+                (a) => `<li class="group flex items-center gap-2.5 rounded-box px-2 py-1.5 -mx-2 hover:bg-base-200">
+                  <span class="opacity-50">${UI.icon(a.contentType.startsWith('image/') ? 'image' : 'file')}</span>
+                  <button class="flex-1 min-w-0 text-left" data-open="${a.id}" title="Open ${UI.esc(a.originalFileName)}">
+                    <span class="block text-sm truncate">${UI.esc(a.originalFileName)}</span>
+                    <span class="block text-xs opacity-50">${Util.formatBytes(a.sizeInBytes)} · ${UI.relTime(a.uploadedAt)}</span>
+                  </button>
+                  <button class="btn btn-ghost btn-xs btn-square opacity-60" data-download="${a.id}" title="Download" aria-label="Download">${UI.icon('download', 'size-3.5')}</button>
+                  <button class="btn btn-ghost btn-xs btn-square opacity-60" data-remove="${a.id}" title="Delete" aria-label="Delete">${UI.icon('trash', 'size-3.5')}</button>
+                </li>`
+              )
+              .join('')
+          : '';
+      }
+
+      async function upload(files) {
+        const progress = document.getElementById('upload-progress');
+        let done = 0;
+        for (const file of files) {
+          progress.hidden = false;
+          progress.textContent = `Uploading ${file.name}…`;
+          try {
+            await Attachments.upload(user, note.id, file);
+            done++;
+          } catch (err) {
+            UI.handleError(err);
+          }
+        }
+        progress.hidden = true;
+        if (done) UI.toast(`${done} file${done === 1 ? '' : 's'} attached.`, 'success');
+        renderAttachments();
+      }
+
+      const input = document.getElementById('file');
+      input.addEventListener('change', () => {
+        upload([...input.files]);
+        input.value = '';
+      });
+      const dz = document.getElementById('dropzone');
+      ['dragenter', 'dragover'].forEach((t) =>
+        dz.addEventListener(t, (e) => {
+          e.preventDefault();
+          dz.classList.add('bg-base-200');
+        })
+      );
+      ['dragleave', 'drop'].forEach((t) => dz.addEventListener(t, () => dz.classList.remove('bg-base-200')));
+      dz.addEventListener('drop', (e) => {
+        e.preventDefault();
+        upload([...e.dataTransfer.files]);
+      });
+
+      list.addEventListener('click', async (e) => {
+        const openBtn = e.target.closest('[data-open]');
+        const dlBtn = e.target.closest('[data-download]');
+        const rmBtn = e.target.closest('[data-remove]');
+        try {
+          if (openBtn) {
+            const { meta, blob } = await Attachments.open(user, openBtn.dataset.open);
+            const url = URL.createObjectURL(blob);
+            if (meta.contentType.startsWith('image/')) {
+              const img = document.getElementById('image-preview');
+              img.src = url;
+              img.alt = meta.originalFileName;
+              document.getElementById('image-name').textContent = meta.originalFileName;
+              const modal = document.getElementById('image-modal');
+              modal.addEventListener('close', () => URL.revokeObjectURL(url), { once: true });
+              modal.showModal();
+            } else {
+              window.open(url, '_blank', 'noopener');
+              setTimeout(() => URL.revokeObjectURL(url), 60000);
+            }
+          } else if (dlBtn) {
+            const { meta, blob } = await Attachments.open(user, dlBtn.dataset.download);
+            UI.download(blob, meta.originalFileName);
+          } else if (rmBtn) {
+            const ok = await UI.confirm({ title: 'Delete attachment?', body: 'The file will be removed permanently.', confirmText: 'Delete', danger: true });
+            if (!ok) return;
+            await Attachments.remove(user, rmBtn.dataset.remove);
+            UI.toast('Attachment deleted.', 'success');
+            renderAttachments();
+          }
+        } catch (err) {
+          UI.handleError(err);
+        }
+      });
+
+      // Status changed from another tab: show fresh data.
+      document.addEventListener('ndm:notification', (e) => {
+        if (e.detail && e.detail.noteId === note.id) reload().catch(UI.handleError);
+      });
+
+      render();
+      renderAttachments();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Categories · Notes &amp; Document Manager</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <script src="js/theme.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.7.50/daisyui.css">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.3"></script>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body class="bg-base-100 text-base-content">
+  <div id="page" hidden>
+    <div class="max-w-3xl">
+      <h2 class="text-2xl font-semibold tracking-tight">Categories</h2>
+      <p class="text-sm opacity-60 mt-1 mb-6">
+        Shared by every user. Names are unique (case-insensitive). Deleting a category moves its notes to <em>Uncategorized</em>.
+      </p>
+
+      <form id="create-form" class="flex flex-wrap items-start gap-2 mb-6" novalidate>
+        <div class="flex-1 min-w-56">
+          <label for="name" class="sr-only">New category name</label>
+          <input id="name" name="name" class="input input-sm w-full" placeholder="New category name" maxlength="50" autocomplete="off">
+          <p class="text-error text-xs mt-1.5" data-error-for="name"></p>
+        </div>
+        <button class="btn btn-sm btn-primary gap-2" type="submit" id="add-btn"></button>
+      </form>
+
+      <div class="border hairline rounded-box overflow-x-auto">
+        <table class="table table-sm">
+          <thead>
+            <tr class="text-xs">
+              <th>Name</th>
+              <th class="text-right">Notes</th>
+              <th class="hidden sm:table-cell">Created</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/db.js"></script>
+  <script src="js/core.js"></script>
+  <script src="js/ui.js"></script>
+  <script>
+    (async () => {
+      const admin = await UI.boot({ guard: 'admin', active: 'admin-categories', title: 'Categories' });
+      const form = document.getElementById('create-form');
+      const rows = document.getElementById('rows');
+      document.getElementById('add-btn').innerHTML = UI.icon('plus') + 'Add category';
+      let cats = [];
+
+      async function render() {
+        cats = await Categories.listWithUsage(admin);
+        rows.innerHTML = cats.length
+          ? cats
+              .map(
+                (c) => `<tr class="hover:bg-base-200">
+                  <td class="font-medium">${UI.esc(c.name)}</td>
+                  <td class="text-right tabular-nums">${c.noteCount}</td>
+                  <td class="hidden sm:table-cell opacity-60">${UI.formatDate(c.createdAt, false)}</td>
+                  <td class="text-right whitespace-nowrap">
+                    <button class="btn btn-ghost btn-xs btn-square" data-edit="${c.id}" title="Rename" aria-label="Rename ${UI.esc(c.name)}">${UI.icon('edit', 'size-3.5')}</button>
+                    <button class="btn btn-ghost btn-xs btn-square" data-delete="${c.id}" title="Delete" aria-label="Delete ${UI.esc(c.name)}">${UI.icon('trash', 'size-3.5')}</button>
+                  </td>
+                </tr>`
+              )
+              .join('')
+          : '<tr><td colspan="4" class="text-center py-10 opacity-50">No categories yet</td></tr>';
+      }
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        UI.clearErrors(form);
+        try {
+          const c = await Categories.create(admin, form.elements.name.value);
+          form.reset();
+          UI.toast(`Category "${c.name}" created.`, 'success');
+          render();
+        } catch (err) {
+          if (!UI.showErrors(form, err)) UI.handleError(err);
+        }
+      });
+
+      rows.addEventListener('click', async (e) => {
+        const edit = e.target.closest('[data-edit]');
+        const del = e.target.closest('[data-delete]');
+        if (edit) {
+          const c = cats.find((x) => x.id === edit.dataset.edit);
+          const res = await UI.prompt({
+            title: 'Rename category',
+            label: 'Name',
+            value: c.name,
+            maxLength: Config.CATEGORY_MAX,
+            onSubmit: (v) => Categories.rename(admin, c.id, v)
+          });
+          if (res) {
+            UI.toast('Category renamed.', 'success');
+            render();
+          }
+        } else if (del) {
+          const c = cats.find((x) => x.id === del.dataset.delete);
+          const ok = await UI.confirm({
+            title: `Delete "${c.name}"?`,
+            body: c.noteCount
+              ? `${c.noteCount} note${c.noteCount === 1 ? ' uses' : 's use'} this category. ${c.noteCount === 1 ? 'It' : 'They'} will be kept and moved to <em>Uncategorized</em>.`
+              : 'No notes use this category.',
+            confirmText: 'Delete category',
+            danger: true
+          });
+          if (!ok) return;
+          try {
+            const moved = await Categories.remove(admin, c.id);
+            UI.toast(moved ? `Deleted. ${moved} note${moved === 1 ? '' : 's'} moved to Uncategorized.` : 'Category deleted.', 'success');
+            render();
+          } catch (err) {
+            UI.handleError(err);
+          }
+        }
+      });
+
+      render();
+    })();
+  </script>
+</body>
+</html>

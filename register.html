@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Create account · Notes &amp; Document Manager</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <script src="js/theme.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.7.50/daisyui.css">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.3"></script>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body class="bg-base-200 text-base-content min-h-screen">
+  <div id="page" hidden class="min-h-screen flex flex-col">
+    <div data-public-header></div>
+    <div class="flex-1 grid place-items-center px-4 py-12 md:py-16">
+      <div class="w-full max-w-sm">
+        <div class="mb-8">
+          <h1 class="text-xl font-semibold tracking-tight">Create your account</h1>
+          <p class="text-sm opacity-60 mt-1">Keep notes and documents organised in one place.</p>
+        </div>
+
+        <form id="register-form" class="bg-base-100 border hairline rounded-box p-6 space-y-4" novalidate>
+          <div>
+            <label class="block text-sm mb-1.5" for="displayName">Name</label>
+            <input id="displayName" name="displayName" class="input w-full" autocomplete="name" maxlength="80" autofocus>
+            <p class="text-error text-xs mt-1.5" data-error-for="displayName"></p>
+          </div>
+          <div>
+            <label class="block text-sm mb-1.5" for="email">Email</label>
+            <input id="email" name="email" type="email" class="input w-full" autocomplete="email">
+            <p class="text-error text-xs mt-1.5" data-error-for="email"></p>
+          </div>
+          <div>
+            <label class="block text-sm mb-1.5" for="password">Password</label>
+            <input id="password" name="password" type="password" class="input w-full" autocomplete="new-password">
+            <ul id="rules" class="grid grid-cols-2 gap-x-3 gap-y-1 text-xs mt-2"></ul>
+            <p class="text-error text-xs mt-1.5" data-error-for="password"></p>
+          </div>
+          <div>
+            <label class="block text-sm mb-1.5" for="confirmPassword">Confirm password</label>
+            <input id="confirmPassword" name="confirmPassword" type="password" class="input w-full" autocomplete="new-password">
+            <p class="text-error text-xs mt-1.5" data-error-for="confirmPassword"></p>
+          </div>
+          <button class="btn btn-primary w-full" type="submit">Create account</button>
+        </form>
+
+        <p class="text-sm text-center mt-5 opacity-70">Already registered? <a href="login.html" class="link font-medium">Sign in</a></p>
+      </div>
+    </div>
+    <div data-footer-slot></div>
+  </div>
+
+  <script src="js/db.js"></script>
+  <script src="js/core.js"></script>
+  <script src="js/ui.js"></script>
+  <script>
+    (async () => {
+      const user = await UI.bootPublic();
+      if (user) {
+        location.replace(Auth.homeFor(user));
+        return;
+      }
+      const form = document.getElementById('register-form');
+      const rules = document.getElementById('rules');
+
+      function renderRules() {
+        const p = form.password.value;
+        rules.innerHTML = Auth.passwordRules
+          .map((r) => {
+            const ok = r.test(p);
+            return `<li class="flex items-center gap-1.5 ${ok ? '' : 'opacity-50'}">${UI.icon(ok ? 'check' : 'x', 'size-3')}${r.label}</li>`;
+          })
+          .join('');
+      }
+      form.password.addEventListener('input', renderRules);
+      renderRules();
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        UI.clearErrors(form);
+        const btn = form.querySelector('button[type=submit]');
+        try {
+          // Note: no role is sent. Registration always creates a "User".
+          await UI.busy(btn, () =>
+            Auth.register({
+              displayName: form.displayName.value,
+              email: form.email.value,
+              password: form.password.value,
+              confirmPassword: form.confirmPassword.value
+            })
+          );
+          UI.flash('Account created. Welcome aboard!');
+          location.replace('dashboard.html');
+        } catch (err) {
+          if (!UI.showErrors(form, err)) UI.handleError(err);
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>User · Notes &amp; Document Manager</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <script src="js/theme.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.7.50/daisyui.css">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.3"></script>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body class="bg-base-100 text-base-content">
+  <div id="page" hidden>
+    <a href="admin-users.html" class="btn btn-ghost btn-sm gap-2 -ml-2 mb-6" id="back"></a>
+
+    <div id="not-found" hidden class="py-16 text-center">
+      <h2 class="text-lg font-semibold">User not found</h2>
+    </div>
+
+    <div id="view" hidden class="max-w-2xl">
+      <div class="flex items-center gap-4 mb-8">
+        <span class="size-12 rounded-full bg-base-300 grid place-items-center font-semibold" id="avatar"></span>
+        <div class="min-w-0">
+          <h2 class="text-xl font-semibold tracking-tight truncate" id="name"></h2>
+          <p class="text-sm opacity-60 truncate" id="email"></p>
+        </div>
+      </div>
+
+      <section class="border hairline rounded-box divide-y divide-base-300">
+        <dl class="p-6 grid grid-cols-[9rem_1fr] gap-y-2.5 text-sm" id="details"></dl>
+
+        <div class="p-6">
+          <h3 class="font-medium text-sm">Roles</h3>
+          <p class="text-xs opacity-60 mt-1 mb-4">Role changes sign the user out so the new permissions apply immediately.</p>
+          <div class="space-y-3" id="roles"></div>
+        </div>
+
+        <div class="p-6" id="lock-section" hidden>
+          <h3 class="font-medium text-sm">Sign-in lockout</h3>
+          <p class="text-xs opacity-60 mt-1 mb-4">This account is temporarily locked after repeated failed sign-ins.</p>
+          <button class="btn btn-sm" id="unlock">Unlock now</button>
+        </div>
+      </section>
+
+      <p class="text-xs opacity-50 mt-4">Note contents and attachments are private to their owner and are not shown to administrators.</p>
+    </div>
+  </div>
+
+  <script src="js/db.js"></script>
+  <script src="js/core.js"></script>
+  <script src="js/ui.js"></script>
+  <script>
+    (async () => {
+      const admin = await UI.boot({ guard: 'admin', active: 'admin-users', title: 'User details' });
+      const id = UI.params().id || '';
+      document.getElementById('back').innerHTML = UI.icon('back') + 'Users';
+      let u;
+
+      async function load() {
+        try {
+          u = await Admin.user(admin, id);
+        } catch (err) {
+          if (err.code === 'notfound') {
+            document.getElementById('not-found').hidden = false;
+            return false;
+          }
+          throw err;
+        }
+        return true;
+      }
+
+      const ROLE_INFO = {
+        User: 'Can create and manage their own notes and attachments.',
+        Admin: 'Can manage users, roles and the shared category list.'
+      };
+
+      function render() {
+        document.getElementById('view').hidden = false;
+        document.getElementById('avatar').textContent = u.displayName.split(/\s+/).map((p) => p[0]).slice(0, 2).join('').toUpperCase();
+        document.getElementById('name').textContent = u.displayName + (u.id === admin.id ? ' (you)' : '');
+        document.getElementById('email').textContent = u.email;
+        const row = (k, v) => `<dt class="opacity-55">${k}</dt><dd>${v}</dd>`;
+        document.getElementById('details').innerHTML =
+          row('Joined', UI.formatDate(u.createdAt)) +
+          row('Last sign-in', u.lastLoginAt ? UI.formatDate(u.lastLoginAt) : 'Never') +
+          row('Notes', u.noteCount) +
+          row('Attachments', u.attachmentCount) +
+          row('Password', u.mustChangePassword ? 'Temporary — must be changed' : 'Set by user');
+        document.getElementById('roles').innerHTML = Object.values(Roles)
+          .map(
+            (r) => `<label class="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" class="toggle toggle-sm mt-0.5" data-role="${r}" ${u.roles.includes(r) ? 'checked' : ''}>
+              <span><span class="block text-sm font-medium">${r}</span><span class="block text-xs opacity-60">${ROLE_INFO[r]}</span></span>
+            </label>`
+          )
+          .join('');
+        document.getElementById('lock-section').hidden = !u.locked;
+      }
+
+      document.getElementById('roles').addEventListener('change', async (e) => {
+        const t = e.target.closest('[data-role]');
+        if (!t) return;
+        const role = t.dataset.role;
+        const enable = t.checked;
+        const self = u.id === admin.id;
+        const ok = await UI.confirm({
+          title: `${enable ? 'Assign' : 'Remove'} the ${role} role?`,
+          body:
+            `${UI.esc(u.displayName)} will ${enable ? 'gain' : 'lose'} ${role} access and be signed out of active sessions.` +
+            (self ? '<br><br><strong>This is your own account.</strong> You will be signed out.' : ''),
+          confirmText: enable ? 'Assign role' : 'Remove role',
+          danger: !enable
+        });
+        if (!ok) {
+          t.checked = !enable;
+          return;
+        }
+        try {
+          await Admin.setRole(admin, u.id, role, enable);
+          if (self) {
+            UI.flash('Your roles changed. Please sign in again.', 'info');
+            location.href = 'login.html';
+            return;
+          }
+          await load();
+          render();
+          UI.toast(`${role} role ${enable ? 'assigned' : 'removed'}.`, 'success');
+        } catch (err) {
+          t.checked = !enable;
+          UI.handleError(err);
+        }
+      });
+
+      document.getElementById('unlock').addEventListener('click', async () => {
+        try {
+          await Admin.unlock(admin, u.id);
+          await load();
+          render();
+          UI.toast('Account unlocked.', 'success');
+        } catch (err) {
+          UI.handleError(err);
+        }
+      });
+
+      if (await load()) render();
+    })();
+  </script>
+</body>
+</html>
