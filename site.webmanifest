@@ -1,0 +1,17 @@
+{
+  "name": "Notewell — Notes & Checklists",
+  "short_name": "Notewell",
+  "description": "A free, simple notes app for shopping lists, meal plans, trip checklists and budgets.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "lang": "en",
+  "categories": ["productivity", "lifestyle"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

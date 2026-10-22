@@ -6,6 +6,15 @@
   <title>Categories · Notewell</title>
   <meta name="robots" content="noindex, nofollow">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="manifest" href="site.webmanifest">
+  <meta name="application-name" content="Notewell">
+  <meta name="apple-mobile-web-app-title" content="Notewell">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#191919" media="(prefers-color-scheme: dark)">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
@@ -19,23 +28,30 @@
     <div class="max-w-3xl">
       <h2 class="text-2xl font-semibold tracking-tight">Categories</h2>
       <p class="text-sm opacity-60 mt-1 mb-6">
-        Shared by every user. Names are unique (case-insensitive). Deleting a category moves its notes to <em>Uncategorized</em>.
+        Shared by every user. Each category has a colour that appears next to it on notes. Names are unique (case-insensitive). Deleting a category moves its notes to <em>Uncategorized</em>.
       </p>
 
-      <form id="create-form" class="flex flex-wrap items-start gap-2 mb-6" novalidate>
-        <div class="flex-1 min-w-56">
-          <label for="name" class="sr-only">New category name</label>
-          <input id="name" name="name" class="input input-sm w-full" placeholder="New category name" maxlength="50" autocomplete="off">
-          <p class="text-error text-xs mt-1.5" data-error-for="name"></p>
+      <form id="create-form" class="border hairline rounded-box p-4 mb-6 space-y-3" novalidate>
+        <div class="flex flex-wrap items-start gap-2">
+          <div class="flex-1 min-w-56">
+            <label for="name" class="sr-only">New category name</label>
+            <input id="name" name="name" class="input input-sm w-full" placeholder="New category name" maxlength="50" autocomplete="off">
+            <p class="text-error text-xs mt-1.5" data-error-for="name"></p>
+          </div>
+          <button class="btn btn-sm btn-primary gap-2" type="submit" id="add-btn"></button>
         </div>
-        <button class="btn btn-sm btn-primary gap-2" type="submit" id="add-btn"></button>
+        <fieldset>
+          <legend class="text-xs opacity-70 mb-2">Colour</legend>
+          <div class="flex flex-wrap gap-2" id="create-colors"></div>
+          <p class="text-error text-xs mt-1.5" data-error-for="color"></p>
+        </fieldset>
       </form>
 
       <div class="border hairline rounded-box overflow-x-auto">
         <table class="table table-sm">
           <thead>
             <tr class="text-xs">
-              <th>Name</th>
+              <th>Category</th>
               <th class="text-right">Notes</th>
               <th class="hidden sm:table-cell">Created</th>
               <th></th>
@@ -56,6 +72,8 @@
       const form = document.getElementById('create-form');
       const rows = document.getElementById('rows');
       document.getElementById('add-btn').innerHTML = UI.icon('plus') + 'Add category';
+      const resetColors = () => (document.getElementById('create-colors').innerHTML = UI.colorSwatches('color', 'blue'));
+      resetColors();
       let cats = [];
 
       async function render() {
@@ -64,11 +82,11 @@
           ? cats
               .map(
                 (c) => `<tr class="hover:bg-base-200">
-                  <td class="font-medium">${UI.esc(c.name)}</td>
+                  <td><span class="cat-tag c-${categoryColor(c)} text-sm"><span class="cat-dot"></span>${UI.esc(c.name)}</span></td>
                   <td class="text-right tabular-nums">${c.noteCount}</td>
                   <td class="hidden sm:table-cell opacity-60">${UI.formatDate(c.createdAt, false)}</td>
                   <td class="text-right whitespace-nowrap">
-                    <button class="btn btn-ghost btn-xs btn-square" data-edit="${c.id}" title="Rename" aria-label="Rename ${UI.esc(c.name)}">${UI.icon('edit', 'size-3.5')}</button>
+                    <button class="btn btn-ghost btn-xs btn-square" data-edit="${c.id}" title="Edit name and colour" aria-label="Edit ${UI.esc(c.name)}">${UI.icon('edit', 'size-3.5')}</button>
                     <button class="btn btn-ghost btn-xs btn-square" data-delete="${c.id}" title="Delete" aria-label="Delete ${UI.esc(c.name)}">${UI.icon('trash', 'size-3.5')}</button>
                   </td>
                 </tr>`
@@ -81,8 +99,9 @@
         e.preventDefault();
         UI.clearErrors(form);
         try {
-          const c = await Categories.create(admin, form.elements.name.value);
+          const c = await Categories.create(admin, form.elements.name.value, form.elements.color.value);
           form.reset();
+          resetColors();
           UI.toast(`Category "${c.name}" created.`, 'success');
           render();
         } catch (err) {
@@ -95,15 +114,9 @@
         const del = e.target.closest('[data-delete]');
         if (edit) {
           const c = cats.find((x) => x.id === edit.dataset.edit);
-          const res = await UI.prompt({
-            title: 'Rename category',
-            label: 'Name',
-            value: c.name,
-            maxLength: Config.CATEGORY_MAX,
-            onSubmit: (v) => Categories.rename(admin, c.id, v)
-          });
+          const res = await editDialog(c);
           if (res) {
-            UI.toast('Category renamed.', 'success');
+            UI.toast('Category updated.', 'success');
             render();
           }
         } else if (del) {
@@ -126,6 +139,52 @@
           }
         }
       });
+
+      // Edit dialog: name + colour.
+      function editDialog(c) {
+        return new Promise((resolve) => {
+          const d = document.createElement('dialog');
+          d.className = 'modal';
+          d.innerHTML = `<div class="modal-box max-w-md border hairline">
+            <form novalidate>
+              <h3 class="font-semibold text-base mb-4">Edit category</h3>
+              <label class="block text-sm mb-1.5" for="edit-name">Name</label>
+              <input id="edit-name" name="name" class="input input-sm w-full" maxlength="${Config.CATEGORY_MAX}" autocomplete="off">
+              <p class="text-error text-xs mt-1.5" data-error-for="name"></p>
+              <fieldset class="mt-4">
+                <legend class="text-sm mb-2">Colour</legend>
+                <div class="flex flex-wrap gap-2">${UI.colorSwatches('color', categoryColor(c))}</div>
+                <p class="text-error text-xs mt-1.5" data-error-for="color"></p>
+              </fieldset>
+              <div class="modal-action">
+                <button type="button" class="btn btn-sm btn-ghost" data-cancel>Cancel</button>
+                <button type="submit" class="btn btn-sm btn-primary">Save</button>
+              </div>
+            </form></div>
+            <form method="dialog" class="modal-backdrop"><button>close</button></form>`;
+          document.body.appendChild(d);
+          const f = d.querySelector('form');
+          f.elements.name.value = c.name;
+          let result = null;
+          d.querySelector('[data-cancel]').onclick = () => d.close();
+          f.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            UI.clearErrors(f);
+            try {
+              result = await Categories.update(admin, c.id, { name: f.elements.name.value, color: f.elements.color.value });
+              d.close();
+            } catch (err) {
+              if (!UI.showErrors(f, err)) UI.handleError(err);
+            }
+          });
+          d.addEventListener('close', () => {
+            d.remove();
+            resolve(result);
+          });
+          d.showModal();
+          f.elements.name.focus();
+        });
+      }
 
       render();
     })();

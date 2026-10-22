@@ -4,9 +4,55 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sign in · Notewell</title>
-  <meta name="description" content="Sign in to Notewell, the Markdown notes and document manager.">
+  <meta name="description" content="Sign in to Notewell, the free notes and checklist app for everyday life.">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
   <link rel="canonical" href="https://prathameshsystenics.github.io/notewell/login.html">
+  <link rel="alternate" hreflang="en" href="https://prathameshsystenics.github.io/notewell/login.html">
+  <link rel="alternate" hreflang="x-default" href="https://prathameshsystenics.github.io/notewell/login.html">
+  <meta name="author" content="Prathamesh">
+  <meta name="keywords" content="notes app, to-do list, checklist app, shopping list, meal planner, packing list, budget planner, free notes app, online notebook">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Notewell">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:title" content="Sign in · Notewell">
+  <meta property="og:description" content="Sign in to Notewell, the free notes and checklist app for everyday life.">
+  <meta property="og:url" content="https://prathameshsystenics.github.io/notewell/login.html">
+  <meta property="og:image" content="https://prathameshsystenics.github.io/notewell/og-image.png">
+  <meta property="og:image:secure_url" content="https://prathameshsystenics.github.io/notewell/og-image.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Notewell: a to-do board with a grocery list, trip packing list, meal plan and monthly budget.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Sign in · Notewell">
+  <meta name="twitter:description" content="Sign in to Notewell, the free notes and checklist app for everyday life.">
+  <meta name="twitter:image" content="https://prathameshsystenics.github.io/notewell/og-image.png">
+  <meta name="twitter:image:alt" content="Notewell: a to-do board with a grocery list, trip packing list, meal plan and monthly budget.">
+  <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "Sign in",
+  "url": "https://prathameshsystenics.github.io/notewell/login.html",
+  "description": "Sign in to Notewell, the free notes and checklist app for everyday life.",
+  "isPartOf": {
+    "@type": "WebSite",
+    "name": "Notewell",
+    "url": "https://prathameshsystenics.github.io/notewell/"
+  },
+  "inLanguage": "en"
+}
+  </script>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="manifest" href="site.webmanifest">
+  <meta name="application-name" content="Notewell">
+  <meta name="apple-mobile-web-app-title" content="Notewell">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#191919" media="(prefers-color-scheme: dark)">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
@@ -32,7 +78,7 @@
             <input id="email" name="email" type="email" class="input w-full" autocomplete="username" required autofocus>
           </div>
           <div>
-            <label class="block text-sm mb-1.5" for="password">Password</label>
+            <div class="flex items-center justify-between mb-1.5"><label class="block text-sm" for="password">Password</label><a href="forgot-password.html" class="text-sm link link-hover opacity-75 py-1" id="forgot-link">Forgot password?</a></div>
             <input id="password" name="password" type="password" class="input w-full" autocomplete="current-password" required>
           </div>
           <button class="btn btn-primary w-full" type="submit">Sign in</button>
@@ -77,6 +123,10 @@
       });
 
       const form = document.getElementById('login-form');
+      document.getElementById('forgot-link').addEventListener('click', (e) => {
+        const email = form.email.value.trim();
+        if (email) e.currentTarget.href = 'forgot-password.html?email=' + encodeURIComponent(email);
+      });
       const errorBox = document.getElementById('form-error');
       form.addEventListener('submit', async (e) => {
         e.preventDefault();

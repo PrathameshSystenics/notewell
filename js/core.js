@@ -29,7 +29,8 @@
     SESSION_HOURS: 8,
     LOCKOUT_ATTEMPTS: 5,
     LOCKOUT_MINUTES: 5,
-    PBKDF2_ITERATIONS: 120000
+    PBKDF2_ITERATIONS: 120000,
+    RESET_MINUTES: 60
   };
 
   const Roles = Object.freeze({ Admin: 'Admin', User: 'User' });
@@ -112,6 +113,11 @@
       256
     );
     return Util.toB64(new Uint8Array(bits));
+  }
+
+  async function sha256(text) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+    return Util.toB64(new Uint8Array(buf));
   }
 
   async function hashPassword(password) {
@@ -309,6 +315,59 @@
       return userDto(user);
     },
 
+    // Step 1 of "forgot password": create a one-time reset link (valid 1 hour).
+    // Only a SHA-256 hash of the token is stored. Returns the link because this
+    // browser-only demo cannot deliver real email.
+    async requestPasswordReset(emailInput) {
+      const email = Util.normalize(emailInput);
+      if (!email) throw fail.validation({ email: 'Email is required.' });
+      if (!Util.isEmail(email)) throw fail.validation({ email: 'Enter a valid email address.' });
+      const user = (await Store.getAllBy('users', 'email', email))[0];
+      if (!user) {
+        Log.info('password.resetRequested', { known: false });
+        return { link: null };
+      }
+      const token = Util.toB64(crypto.getRandomValues(new Uint8Array(32))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      user.resetTokenHash = await sha256(token);
+      user.resetTokenExpires = Date.now() + Config.RESET_MINUTES * 60 * 1000;
+      await Store.put('users', user);
+      const link = 'reset-password.html?token=' + encodeURIComponent(token);
+      await Email.send(user, EmailTemplates.passwordReset(user, link));
+      Log.info('password.resetRequested', { userId: user.id });
+      return { link };
+    },
+
+    // Step 2: check the token and set the new password.
+    async resetPassword(token, newPassword, confirmPassword) {
+      const invalid = new AppError('validation', 'This reset link is invalid or has expired. Please request a new one.');
+      if (!token) throw invalid;
+      const hash = await sha256(token);
+      const user = (await Store.getAll('users')).find((u) => u.resetTokenHash && u.resetTokenHash === hash);
+      if (!user || !user.resetTokenExpires || user.resetTokenExpires < Date.now()) throw invalid;
+      const errors = {};
+      const problems = passwordProblems(newPassword || '');
+      if (problems.length) errors.newPassword = 'Password needs: ' + problems.join(', ').toLowerCase() + '.';
+      if (newPassword !== confirmPassword) errors.confirmPassword = 'Passwords do not match.';
+      if (Object.keys(errors).length) throw fail.validation(errors);
+      Object.assign(user, await hashPassword(newPassword));
+      delete user.resetTokenHash;
+      delete user.resetTokenExpires;
+      user.mustChangePassword = false;
+      user.accessFailedCount = 0;
+      user.lockoutEnd = 0;
+      user.securityStamp = Util.uid(); // signs out every existing session
+      await Store.put('users', user);
+      Log.info('password.reset', { userId: user.id });
+      return userDto(user);
+    },
+
+    async resetTokenValid(token) {
+      if (!token) return false;
+      const hash = await sha256(token);
+      const user = (await Store.getAll('users')).find((u) => u.resetTokenHash && u.resetTokenHash === hash);
+      return !!(user && user.resetTokenExpires > Date.now());
+    },
+
     safeReturnUrl
   };
 
@@ -319,6 +378,23 @@
   }
 
   /* -------------------------------------------------------------- categories */
+  // Category colours follow Notion's palette (see css/app.css for the shades).
+  const CATEGORY_COLORS = Object.freeze(['gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red']);
+
+  // Older categories have no colour yet: derive a stable one from the name.
+  function categoryColor(cat) {
+    if (cat && CATEGORY_COLORS.includes(cat.color)) return cat.color;
+    const name = (cat && cat.name) || '';
+    let h = 0;
+    for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    return CATEGORY_COLORS[1 + (h % (CATEGORY_COLORS.length - 1))];
+  }
+
+  function validateCategoryColor(color) {
+    if (!CATEGORY_COLORS.includes(color)) throw fail.validation({ color: 'Choose one of the colours.' });
+    return color;
+  }
+
   function validateCategoryName(raw) {
     const name = Util.clean(raw).replace(/\s+/g, ' ');
     if (!name) throw fail.validation({ name: 'Category name is required.' });
@@ -339,10 +415,10 @@
       return Promise.all(all.map(async (c) => ({ ...c, noteCount: await Store.countBy('notes', 'categoryId', c.id) })));
     },
 
-    async create(admin, rawName) {
+    async create(admin, rawName, color = 'gray') {
       requireRole(admin, Roles.Admin);
       const name = validateCategoryName(rawName);
-      const cat = { id: Util.uid(), name, nameNormalized: Util.normalize(name), createdAt: Util.now() };
+      const cat = { id: Util.uid(), name, nameNormalized: Util.normalize(name), color: validateCategoryColor(color), createdAt: Util.now() };
       try {
         await Store.add('categories', cat);
       } catch (e) {
@@ -353,13 +429,15 @@
       return cat;
     },
 
-    async rename(admin, id, rawName) {
+    // Rename and/or recolour a category.
+    async update(admin, id, { name: rawName, color }) {
       requireRole(admin, Roles.Admin);
       const cat = await Store.get('categories', id);
       if (!cat) throw fail.notFound('Category');
       const name = validateCategoryName(rawName);
       cat.name = name;
       cat.nameNormalized = Util.normalize(name);
+      cat.color = validateCategoryColor(color || categoryColor(cat));
       try {
         await Store.put('categories', cat);
       } catch (e) {
@@ -752,6 +830,15 @@
 <p style="margin-top:20px"><a href="dashboard.html" style="background:#1d1d1b;color:#fff;padding:8px 14px;border-radius:6px;text-decoration:none">Open your dashboard</a></p>`
       )
     }),
+    passwordReset: (user, link) => ({
+      subject: `Reset your ${Config.APP_NAME} password`,
+      html: emailLayout(
+        'Reset your password',
+        `<p>Hi ${esc(user.displayName)},</p><p>We received a request to reset your password. This link works once and expires in ${Config.RESET_MINUTES} minutes.</p>
+<p style="margin-top:20px"><a href="${esc(link)}" style="background:#2383e2;color:#fff;padding:8px 14px;border-radius:6px;text-decoration:none">Choose a new password</a></p>
+<p style="color:#787774">If you didn't ask for this, you can ignore this email. Your password won't change.</p>`
+      )
+    }),
     noteCompleted: (user, note) => ({
       subject: `Completed: ${note.title}`,
       html: emailLayout(
@@ -926,119 +1013,217 @@
   };
 
   /* -------------------------------------------------------------- dev seed */
+  const CATEGORIES = { Home: 'green', Personal: 'blue', Work: 'purple', Travel: 'orange', Money: 'yellow', Ideas: 'pink' };
+
   const SAMPLE_NOTES = [
     {
-      title: 'Learn EF Core',
-      cat: 'Programming',
+      title: 'Weekly meal plan',
+      cat: 'Home',
       status: 'InProgress',
       pinned: true,
-      content: `## Goals
+      content: `## This week
 
-- [x] Create \`ApplicationDbContext\`
-- [x] First migration
-- [ ] Filtering, sorting and pagination
-- [ ] Dashboard aggregate queries
+| Day | Dinner |
+| --- | --- |
+| Monday | Vegetable pasta |
+| Tuesday | Chicken curry and rice |
+| Wednesday | Leftovers |
+| Thursday | Tacos |
+| Friday | Pizza night |
 
-## Notes
+## Prep on Sunday
 
-Use \`AsNoTracking()\` for read-only queries and project to DTOs with \`Select\`.
+- [x] Chop vegetables for Monday and Tuesday
+- [x] Marinate the chicken
+- [ ] Bake banana bread for lunches
+- [ ] Freeze the extra curry
 
-\`\`\`csharp
-var notes = await db.Notes
-    .Where(n => n.UserId == userId)
-    .OrderByDescending(n => n.UpdatedAt)
-    .Skip((page - 1) * size).Take(size)
-    .ToListAsync(ct);
-\`\`\`
-
-> Apply filters **before** materializing results.`
+> Tip: double the curry and freeze half for a busy day.`
     },
     {
-      title: 'Weekly groceries',
-      cat: 'Personal',
+      title: 'Grocery list',
+      cat: 'Home',
       status: 'Draft',
-      content: `- Oats\n- Coffee beans\n- Spinach\n- Greek yoghurt\n- Lemons`
+      content: `- [ ] Milk
+- [ ] Eggs
+- [ ] Bread
+- [ ] Tomatoes and onions
+- [ ] Bananas
+- [ ] Rice (5 kg)
+- [ ] Washing-up liquid`
     },
     {
-      title: 'Reading list',
-      cat: 'Learning',
+      title: 'Weekend trip packing list',
+      cat: 'Travel',
       status: 'InProgress',
-      content: `| Book | Status |\n| --- | --- |\n| Designing Data-Intensive Applications | Reading |\n| The Pragmatic Programmer | Done |\n| Refactoring | Next |`
+      content: `## Bag
+
+- [x] Clothes for 3 days
+- [x] Phone charger
+- [x] Tickets and ID
+- [ ] Sunscreen
+- [ ] Medicines
+
+## Before leaving
+
+- [ ] Ask the neighbour to **water the plants**
+- [ ] Switch off the geyser
+- [ ] Lock all windows`
     },
     {
-      title: 'Sprint retrospective',
-      cat: 'Work Notes',
+      title: 'Monthly household budget',
+      cat: 'Money',
       status: 'Completed',
-      content: `### Went well\n- Shipped attachment upload\n- Fewer flaky tests\n\n### To improve\n- Smaller pull requests\n- Write the migration plan earlier`
+      content: `| Expense | Planned | Spent |
+| --- | --- | --- |
+| Rent | 15,000 | 15,000 |
+| Groceries | 8,000 | 7,450 |
+| Electricity | 1,500 | 1,320 |
+| Phone and internet | 900 | 900 |
+| Eating out | 2,000 | 2,600 |
+
+**Saved this month:** 3,730
+
+Next month: cut down on eating out.`
     },
     {
-      title: 'App idea: plant watering reminders',
+      title: "Mum's birthday party ideas",
       cat: 'Ideas',
       status: 'Draft',
-      content: `A tiny app that reminds you to water plants based on *species* and *season*.\n\n1. Photo of the plant\n2. Pick a schedule\n3. Get a reminder`
+      content: `A small surprise dinner at home on **Saturday evening**.
+
+1. Invite close family and her two best friends
+2. Order her favourite chocolate cake
+3. Make a photo album of old family pictures
+4. Fairy lights and flowers on the balcony
+
+Gift ideas: a warm shawl, a cookbook, or a weekend getaway.`
     },
     {
-      title: 'Identity checklist',
-      cat: 'Programming',
+      title: 'Fix the kitchen tap',
+      cat: 'Home',
       status: 'Completed',
-      content: `- [x] Registration creates **User** only\n- [x] Admin seeded through a controlled process\n- [x] Ownership checks on every note query\n- [x] Logout is a POST`
+      content: `- [x] Check if it is a washer problem
+- [x] Call the plumber
+- [x] Plumber visited on Tuesday
+- [x] Paid and kept the receipt
+
+The tap was replaced. Ask for the **same brand** if it breaks again.`
     }
   ];
 
+  // Technical examples from the first version of the demo data, replaced once
+  // (only if the demo user never edited them).
+  const OLD_SAMPLE_TITLES = [
+    'Learn EF Core',
+    'Weekly groceries',
+    'Reading list',
+    'Sprint retrospective',
+    'App idea: plant watering reminders',
+    'Identity checklist'
+  ];
+
+  async function ensureCategories() {
+    const ids = {};
+    for (const [name, color] of Object.entries(CATEGORIES)) {
+      const norm = Util.normalize(name);
+      const existing = (await Store.getAll('categories')).find((c) => c.nameNormalized === norm);
+      if (existing) {
+        ids[name] = existing.id;
+        continue;
+      }
+      const c = { id: Util.uid(), name, nameNormalized: norm, color, createdAt: Util.now() };
+      try {
+        await Store.add('categories', c);
+        ids[name] = c.id;
+      } catch (_) {
+        const again = (await Store.getAll('categories')).find((x) => x.nameNormalized === norm);
+        ids[name] = again ? again.id : null;
+      }
+    }
+    return ids;
+  }
+
+  function sampleNoteOps(userId, cats) {
+    const base = Date.now();
+    const ops = [];
+    SAMPLE_NOTES.forEach((s, i) => {
+      const ts = new Date(base - (i + 1) * 3.7 * 3600 * 1000).toISOString();
+      const note = {
+        id: Util.uid(),
+        userId,
+        title: s.title,
+        content: s.content,
+        categoryId: cats[s.cat] || null,
+        status: s.status,
+        pinned: !!s.pinned,
+        version: 1,
+        createdAt: ts,
+        updatedAt: ts
+      };
+      ops.push({ type: 'put', store: 'notes', value: note }, { type: 'put', store: 'history', value: snapshot(note, 'Created') });
+    });
+    return ops;
+  }
+
   const Seed = {
     async ensure() {
-      if (await Store.get('meta', 'seed.v1')) return;
+      if (await Store.get('meta', 'seed.v2')) return;
       // Claim the seed first so two tabs do not seed twice.
       try {
-        await Store.add('meta', { key: 'seed.v1', at: Util.now() });
+        await Store.add('meta', { key: 'seed.v2', at: Util.now() });
       } catch (_) {
         return;
       }
-      const cats = {};
-      for (const name of ['Programming', 'Personal', 'Learning', 'Work Notes', 'Ideas']) {
-        const c = { id: Util.uid(), name, nameNormalized: Util.normalize(name), createdAt: Util.now() };
-        cats[name] = c.id;
-        await Store.put('categories', c);
-      }
-      const makeUser = async (email, displayName, password, roles, mustChangePassword) => ({
-        id: Util.uid(),
-        email,
-        displayName,
-        roles,
-        ...(await hashPassword(password)),
-        securityStamp: Util.uid(),
-        mustChangePassword,
-        accessFailedCount: 0,
-        lockoutEnd: 0,
-        createdAt: Util.now()
-      });
-      // Bootstrap admin: the password must be changed at first sign-in.
-      const admin = await makeUser('admin@notes.local', 'Administrator', 'Admin@12345', [Roles.Admin], true);
-      const demo = await makeUser('demo@notes.local', 'Demo User', 'Demo@12345', [Roles.User], false);
-      await Store.batch([
-        { type: 'put', store: 'users', value: admin },
-        { type: 'put', store: 'users', value: demo }
-      ]);
-      const base = Date.now();
-      const ops = [];
-      SAMPLE_NOTES.forEach((s, i) => {
-        const ts = new Date(base - (i + 1) * 3.7 * 3600 * 1000).toISOString();
-        const note = {
+      const firstRun = !(await Store.get('meta', 'seed.v1'));
+      if (firstRun) {
+        await Store.put('meta', { key: 'seed.v1', at: Util.now() });
+        const makeUser = async (email, displayName, password, roles, mustChangePassword) => ({
           id: Util.uid(),
-          userId: demo.id,
-          title: s.title,
-          content: s.content,
-          categoryId: cats[s.cat] || null,
-          status: s.status,
-          pinned: !!s.pinned,
-          version: 1,
-          createdAt: ts,
-          updatedAt: ts
-        };
-        ops.push({ type: 'put', store: 'notes', value: note }, { type: 'put', store: 'history', value: snapshot(note, 'Created') });
-      });
+          email,
+          displayName,
+          roles,
+          ...(await hashPassword(password)),
+          securityStamp: Util.uid(),
+          mustChangePassword,
+          accessFailedCount: 0,
+          lockoutEnd: 0,
+          createdAt: Util.now()
+        });
+        // Bootstrap admin: the password must be changed at first sign-in.
+        const admin = await makeUser('admin@notes.local', 'Administrator', 'Admin@12345', [Roles.Admin], true);
+        const demo = await makeUser('demo@notes.local', 'Demo User', 'Demo@12345', [Roles.User], false);
+        await Store.batch([
+          { type: 'put', store: 'users', value: admin },
+          { type: 'put', store: 'users', value: demo }
+        ]);
+      }
+
+      const cats = await ensureCategories();
+      const demo = (await Store.getAllBy('users', 'email', 'demo@notes.local'))[0];
+      if (!demo) return;
+
+      const ops = [];
+      if (!firstRun) {
+        // Upgrade older demo data: swap untouched technical samples for everyday ones.
+        const notes = await Store.getAllBy('notes', 'userId', demo.id);
+        const old = notes.filter((n) => OLD_SAMPLE_TITLES.includes(n.title) && (n.version || 1) === 1);
+        for (const n of old) {
+          const [history, atts] = await Promise.all([Store.getAllBy('history', 'noteId', n.id), Store.getAllBy('attachments', 'noteId', n.id)]);
+          atts.forEach((a) => ops.push({ type: 'delete', store: 'objects', key: a.objectKey }, { type: 'delete', store: 'attachments', key: a.id }));
+          history.forEach((h) => ops.push({ type: 'delete', store: 'history', key: h.id }));
+          ops.push({ type: 'delete', store: 'notes', key: n.id });
+        }
+      }
+      ops.push(...sampleNoteOps(demo.id, cats));
       await Store.batch(ops);
-      Log.info('seed.done');
+
+      if (!firstRun) {
+        // Remove the old technical category once nothing uses it.
+        const prog = (await Store.getAll('categories')).find((c) => c.nameNormalized === 'programming');
+        if (prog && !(await Store.countBy('notes', 'categoryId', prog.id))) await Store.delete('categories', prog.id);
+      }
+      Log.info('seed.done', { firstRun });
     },
     devAccounts: [
       { email: 'demo@notes.local', password: 'Demo@12345', role: 'User' },
@@ -1085,6 +1270,8 @@ var notes = await db.Notes
     Util,
     Auth,
     Categories,
+    CATEGORY_COLORS,
+    categoryColor,
     Notes,
     History,
     Attachments,

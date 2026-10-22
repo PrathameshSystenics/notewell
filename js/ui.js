@@ -85,6 +85,41 @@
     return c ? c.name : 'Uncategorized';
   }
 
+  // Coloured square + name (cards, lists).
+  function categoryLabel(cats, id) {
+    const c = id && cats.find((x) => x.id === id);
+    if (!c) return `<span class="cat-label opacity-70"><span class="cat-dot c-gray" style="opacity:.45"></span><span class="truncate">Uncategorized</span></span>`;
+    return `<span class="cat-label c-${categoryColor(c)}"><span class="cat-dot"></span><span class="truncate">${esc(c.name)}</span></span>`;
+  }
+
+  // Soft coloured tag (note page, details).
+  function categoryTag(cats, id) {
+    const c = id && cats.find((x) => x.id === id);
+    if (!c) return `<span class="cat-tag c-gray">Uncategorized</span>`;
+    return `<span class="cat-tag c-${categoryColor(c)}"><span class="cat-dot"></span>${esc(c.name)}</span>`;
+  }
+
+  // Pill radio groups used by the note editor.
+  function statusChoices(name = 'status') {
+    return STATUSES.map(
+      (s) => `<label class="choice"><input type="radio" name="${name}" value="${s}" class="sr-only"><span class="dot dot-${s}"></span>${esc(STATUS_LABELS[s])}</label>`
+    ).join('');
+  }
+  function categoryChoices(cats, name = 'categoryId') {
+    return (
+      `<label class="choice"><input type="radio" name="${name}" value="" class="sr-only"><span class="cat-dot c-gray" style="opacity:.45"></span>Uncategorized</label>` +
+      cats
+        .map((c) => `<label class="choice c-${categoryColor(c)}"><input type="radio" name="${name}" value="${esc(c.id)}" class="sr-only"><span class="cat-dot"></span>${esc(c.name)}</label>`)
+        .join('')
+    );
+  }
+  // Colour swatches for the admin category form.
+  function colorSwatches(name, selected) {
+    return CATEGORY_COLORS.map(
+      (c) => `<label class="swatch c-${c}" title="${c[0].toUpperCase() + c.slice(1)}"><input type="radio" name="${name}" value="${c}" class="sr-only" ${c === selected ? 'checked' : ''} aria-label="${c}"></label>`
+    ).join('');
+  }
+
   /* ------------------------------------------------------------- markdown */
   function renderMarkdown(md) {
     const src = String(md || '');
@@ -362,10 +397,10 @@
         ${
           live
             ? `<div class="sm:ml-auto flex flex-wrap items-center gap-x-5 gap-y-2">
-                <span class="tooltip tooltip-top sm:tooltip-left inline-flex items-center gap-2" id="live-status" data-tip="Connecting to the live notification hub…" role="status" aria-live="polite">
+                <span class="tooltip tooltip-top sm:tooltip-left inline-flex items-center gap-2" id="live-status" data-tip="Connecting…" role="status" aria-live="polite">
                   <span class="live-dot is-off" id="live-dot"></span><span id="live-text">Connecting…</span>
                 </span>
-                <span class="inline-flex items-center gap-1.5 opacity-60" title="Where your data is stored">${icon('database', 'size-3.5')}Saved in ${esc(Store.engineName)}</span>
+                <span class="inline-flex items-center gap-1.5 opacity-60" title="Your notes are stored in this browser (${esc(Store.engineName)})">${icon('database', 'size-3.5')}Saved on this device</span>
               </div>`
             : ''
         }
@@ -475,7 +510,7 @@
       shell.querySelector('#live-dot').classList.remove('is-off');
       shell.querySelector('#live-text').textContent = 'Live updates connected';
       shell.querySelector('#live-status').dataset.tip =
-        `NoteStatusHub · connection ${conn.id} · ${conn.transport} · since ${since}` + (lastEvent ? ` · last event ${relTime(lastEvent)}` : '');
+        `Changes show up instantly in all your open windows · connected since ${since}` + (lastEvent ? ` · last update ${relTime(lastEvent)}` : '');
     }
     renderLive();
     setInterval(renderLive, 30000);
@@ -550,6 +585,11 @@
     relTime,
     statusBadge,
     categoryText,
+    categoryLabel,
+    categoryTag,
+    statusChoices,
+    categoryChoices,
+    colorSwatches,
     renderMarkdown,
     toast,
     flash,

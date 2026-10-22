@@ -2,7 +2,7 @@
 
 **Live demo:** https://prathameshsystenics.github.io/notewell/
 
-Write notes in Markdown, organise them by category and status (grid, list or kanban board), attach PDFs and images, and go back to any earlier version.
+A free, simple notes app for everyday life: shopping lists, meal plans, trip checklists and budgets. Organise notes by colour-coded category and status (grid, list or to-do board), attach receipts and photos, and go back to any earlier version.
 
 Notewell is a browser-only implementation of the *Notes & Document Manager* project specification. It is built with plain HTML pages, Tailwind CSS and daisyUI. All data is stored in **IndexedDB**. If IndexedDB cannot be opened (some private-browsing modes), the app uses **localStorage** instead.
 
@@ -36,21 +36,26 @@ To reset everything, clear the site data in your browser's DevTools (Application
 ## SEO
 
 - The home page has a descriptive title, a meta description, its preferred web address, social-share preview tags, and app details for search engines.
-- Private app pages (dashboard, notes, admin, account) are marked so search engines don't index them. Only the home, sign-in and register pages are listed in `sitemap.xml`.
+- Home, sign-in and register pages: descriptive titles, meta descriptions, preferred (canonical) web addresses, Open Graph and Twitter preview tags with a 1200×630 share image (`og-image.png`).
+- Structured data on the home page: website, author, web app details and the visible FAQ.
+- App icons for every device (`favicon.svg`, `favicon-32.png`, `apple-touch-icon.png`, `icon-192.png`, `icon-512.png`) and a web app manifest (`site.webmanifest`).
+- Private app pages (dashboard, notes, admin, account, password reset) are marked so search engines don't index them. Only the home, sign-in and register pages are listed in `sitemap.xml`.
+- A custom `404.html` for missing pages.
 
 ## Pages
 
 | Page                    | Purpose                                                                   |
 | ----------------------- | ------------------------------------------------------------------------- |
 | `index.html`            | Home page for visitors. Signed-in users are sent straight to their dashboard |
-| `login.html`, `register.html`, `access-denied.html` | Public pages                                  |
+| `login.html`, `register.html`, `access-denied.html`, `404.html` | Public pages                       |
+| `forgot-password.html`, `reset-password.html` | Forgot password: a one-time reset link that expires after 1 hour. This demo can't send real email, so the link is shown on screen |
 | `dashboard.html`        | Counts by status, recently updated notes, pinned notes                    |
 | `notes.html`            | Search, filter, sort and paginate notes. Views: **grid**, **list**, **board** (kanban with drag & drop) |
-| `note-edit.html`        | Markdown editor (toolbar, Write / Preview / Split, list continuation, draft recovery, Ctrl+S) |
+| `note-edit.html`        | Editor with a formatting toolbar, Write / Preview / Split, colour-coded status and category pickers, list continuation, draft recovery, Ctrl+S |
 | `note.html`             | Rendered note, status change, clickable checklists, attachments, Markdown export, delete |
 | `note-history.html`     | Every saved version, line diff (vs previous or current), restore          |
 | `account.html`          | Profile, change password, theme, export notes as JSON                     |
-| `admin-*.html`          | Admin overview, users (paginated, role management, unlock), categories    |
+| `admin-*.html`          | Admin overview, users (paginated, role management, unlock), categories with a colour for each |
 
 ## How the spec maps to this build
 

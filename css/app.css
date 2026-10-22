@@ -169,8 +169,8 @@ body {
 
 /* Markdown editor */
 .md-editor {
-  font-family: 'JetBrains Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
-  font-size: 0.9rem;
+  font-family: 'Figtree', ui-sans-serif, system-ui, sans-serif;
+  font-size: 1rem;
   line-height: 1.65;
   tab-size: 2;
   resize: vertical;
@@ -486,4 +486,108 @@ body {
     border: 1px solid var(--line);
     flex-shrink: 0;
   }
+}
+
+/* Category colours (Notion palette): text/dot colour and soft background */
+:root[data-theme='light'] .c-gray { --c-fg: #787774; --c-bg: #F1F1EF; }
+:root[data-theme='light'] .c-brown { --c-fg: #976D57; --c-bg: #F3EEEE; }
+:root[data-theme='light'] .c-orange { --c-fg: #CC782F; --c-bg: #F8ECDF; }
+:root[data-theme='light'] .c-yellow { --c-fg: #C29343; --c-bg: #FAF3DD; }
+:root[data-theme='light'] .c-green { --c-fg: #548164; --c-bg: #EEF3ED; }
+:root[data-theme='light'] .c-blue { --c-fg: #487CA5; --c-bg: #E9F3F7; }
+:root[data-theme='light'] .c-purple { --c-fg: #8A67AB; --c-bg: #F6F3F8; }
+:root[data-theme='light'] .c-pink { --c-fg: #B35488; --c-bg: #F9F2F5; }
+:root[data-theme='light'] .c-red { --c-fg: #C4554D; --c-bg: #FAECEC; }
+:root[data-theme='dark'] .c-gray { --c-fg: #9B9B9B; --c-bg: #2F2F2F; }
+:root[data-theme='dark'] .c-brown { --c-fg: #A27763; --c-bg: #2E2724; }
+:root[data-theme='dark'] .c-orange { --c-fg: #CB7B37; --c-bg: #36291F; }
+:root[data-theme='dark'] .c-yellow { --c-fg: #C19138; --c-bg: #372E20; }
+:root[data-theme='dark'] .c-green { --c-fg: #4F9768; --c-bg: #242B26; }
+:root[data-theme='dark'] .c-blue { --c-fg: #5A8FD6; --c-bg: #1F282D; }
+:root[data-theme='dark'] .c-purple { --c-fg: #9A72CC; --c-bg: #2A2430; }
+:root[data-theme='dark'] .c-pink { --c-fg: #C75A88; --c-bg: #2E2328; }
+:root[data-theme='dark'] .c-red { --c-fg: #CF5F57; --c-bg: #332523; }
+
+.cat-dot {
+  display: inline-block;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 0.15rem;
+  background: var(--c-fg);
+  flex-shrink: 0;
+}
+.cat-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 1.3rem;
+  padding: 0 0.45rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  line-height: 1;
+  white-space: nowrap;
+  background: var(--c-bg);
+  color: var(--c-fg);
+}
+.cat-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+/* Pill-style choices (status and category pickers, colour swatches) */
+.choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.25rem;
+  padding: 0 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.12s, border-color 0.12s;
+}
+.choice:hover {
+  background: var(--hover);
+}
+.choice:has(input:checked) {
+  border-color: var(--color-primary);
+  background: color-mix(in oklab, var(--color-primary) 9%, var(--color-base-100));
+  font-weight: 600;
+}
+.choice:has(input:focus-visible) {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+.choice .dot {
+  width: 0.6rem;
+  height: 0.6rem;
+}
+.swatch {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  background: var(--c-bg);
+  border: 2px solid transparent;
+  cursor: pointer;
+}
+.swatch::after {
+  content: '';
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 999px;
+  background: var(--c-fg);
+}
+.swatch:has(input:checked) {
+  border-color: var(--c-fg);
+}
+.swatch:has(input:focus-visible) {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }

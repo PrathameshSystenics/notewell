@@ -6,6 +6,15 @@
   <title>Edit note · Notewell</title>
   <meta name="robots" content="noindex, nofollow">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="manifest" href="site.webmanifest">
+  <meta name="application-name" content="Notewell">
+  <meta name="apple-mobile-web-app-title" content="Notewell">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#191919" media="(prefers-color-scheme: dark)">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
@@ -45,17 +54,17 @@
           <p class="text-error text-xs mt-1.5" data-error-for="title"></p>
         </div>
 
-        <div class="grid sm:grid-cols-2 gap-4">
-          <div>
-            <label for="categoryId" class="block text-xs opacity-70 mb-1.5">Category</label>
-            <select id="categoryId" name="categoryId" class="select select-sm w-full"></select>
-            <p class="text-error text-xs mt-1.5" data-error-for="categoryId"></p>
-          </div>
-          <div>
-            <label for="status" class="block text-xs opacity-70 mb-1.5">Status</label>
-            <select id="status" name="status" class="select select-sm w-full"></select>
+        <div class="space-y-5">
+          <fieldset>
+            <legend class="block text-xs opacity-70 mb-2">Status</legend>
+            <div class="flex flex-wrap gap-2" id="status-choices"></div>
             <p class="text-error text-xs mt-1.5" data-error-for="status"></p>
-          </div>
+          </fieldset>
+          <fieldset>
+            <legend class="block text-xs opacity-70 mb-2">Category</legend>
+            <div class="flex flex-wrap gap-2" id="category-choices"></div>
+            <p class="text-error text-xs mt-1.5" data-error-for="categoryId"></p>
+          </fieldset>
         </div>
 
         <div class="border hairline rounded-box overflow-hidden">
@@ -68,12 +77,12 @@
             </div>
           </div>
           <div class="grid" id="panes">
-            <textarea id="content" name="content" class="md-editor w-full min-h-[26rem] p-4 bg-base-100 outline-none border-0 block" placeholder="Write in Markdown…&#10;&#10;# Heading&#10;- list item&#10;- [ ] task&#10;**bold**, _italic_, `code`" spellcheck="true"></textarea>
+            <textarea id="content" name="content" class="md-editor w-full min-h-[26rem] p-4 bg-base-100 outline-none border-0 block" placeholder="Start writing…&#10;&#10;# A heading&#10;- a bullet point&#10;- [ ] something to tick off&#10;**bold** and _italic_" spellcheck="true"></textarea>
             <div id="preview" class="md-body p-5 min-h-[26rem] overflow-auto bg-base-100"></div>
           </div>
           <div class="flex flex-wrap items-center gap-4 px-4 py-2 border-t hairline text-xs opacity-60">
             <span id="counts">0 words</span>
-            <span class="ml-auto">Markdown supported</span>
+            <span class="ml-auto">Use the toolbar to format</span>
             <button type="button" class="link py-1.5" onclick="document.getElementById('cheatsheet').showModal()">Syntax help</button>
           </div>
         </div>
@@ -83,7 +92,7 @@
 
     <dialog id="cheatsheet" class="modal">
       <div class="modal-box max-w-lg border hairline">
-        <h3 class="font-semibold mb-4">Markdown quick reference</h3>
+        <h3 class="font-semibold mb-4">Formatting quick reference</h3>
         <table class="table table-sm">
           <tbody class="mono text-xs">
             <tr><td># Heading</td><td>Heading (## and ### for smaller)</td></tr>
@@ -91,10 +100,8 @@
             <tr><td>~~text~~</td><td>Strikethrough</td></tr>
             <tr><td>- item</td><td>Bulleted list</td></tr>
             <tr><td>1. item</td><td>Numbered list</td></tr>
-            <tr><td>- [ ] task</td><td>Task list (- [x] when done)</td></tr>
+            <tr><td>- [ ] milk</td><td>Checklist item (- [x] when done)</td></tr>
             <tr><td>[text](https://…)</td><td>Link</td></tr>
-            <tr><td>`code`</td><td>Inline code</td></tr>
-            <tr><td>```lang … ```</td><td>Code block</td></tr>
             <tr><td>&gt; quote</td><td>Blockquote</td></tr>
             <tr><td>| a | b |</td><td>Table</td></tr>
             <tr><td>---</td><td>Divider</td></tr>
@@ -123,8 +130,18 @@
       const cats = await Categories.list();
 
       document.getElementById('back').innerHTML = UI.icon('back');
-      f.categoryId.innerHTML = '<option value="">Uncategorized</option>' + cats.map((c) => `<option value="${c.id}">${UI.esc(c.name)}</option>`).join('');
-      f.status.innerHTML = STATUSES.map((s) => `<option value="${s}">${STATUS_LABELS[s]}</option>`).join('');
+      document.getElementById('status-choices').innerHTML = UI.statusChoices('status');
+      document.getElementById('category-choices').innerHTML = UI.categoryChoices(cats, 'categoryId');
+      // Radio-group helpers (status and category are pill pickers).
+      const radios = (name) => [...form.querySelectorAll(`input[name="${name}"]`)];
+      const getChoice = (name) => (radios(name).find((r) => r.checked) || { value: '' }).value;
+      const hasChoice = (name, value) => radios(name).some((r) => r.value === value);
+      function setChoice(name, value) {
+        const target = radios(name).find((r) => r.value === value) || radios(name)[0];
+        if (target) target.checked = true;
+      }
+      setChoice('status', 'Draft');
+      setChoice('categoryId', '');
 
       let note = null;
       if (id) {
@@ -143,16 +160,16 @@
         document.getElementById('cancel').href = back;
         f.title.value = note.title;
         f.content.value = note.content;
-        f.categoryId.value = note.categoryId || '';
-        f.status.value = note.status;
+        setChoice('categoryId', note.categoryId || '');
+        setChoice('status', note.status);
       } else {
         const preset = UI.params();
-        if (preset.status && STATUSES.includes(preset.status)) f.status.value = preset.status;
-        if (preset.categoryId && cats.some((c) => c.id === preset.categoryId)) f.categoryId.value = preset.categoryId;
+        if (preset.status && STATUSES.includes(preset.status)) setChoice('status', preset.status);
+        if (preset.categoryId && hasChoice('categoryId', preset.categoryId)) setChoice('categoryId', preset.categoryId);
       }
       form.hidden = false;
 
-      const values = () => ({ title: f.title.value, content: f.content.value, categoryId: f.categoryId.value, status: f.status.value });
+      const values = () => ({ title: f.title.value, content: f.content.value, categoryId: getChoice('categoryId'), status: getChoice('status') });
       const initial = JSON.stringify(values());
       const isDirty = () => JSON.stringify(values()) !== initial;
 
@@ -188,8 +205,8 @@
         document.getElementById('draft-restore').onclick = () => {
           f.title.value = draft.title;
           f.content.value = draft.content;
-          if ([...f.categoryId.options].some((o) => o.value === draft.categoryId)) f.categoryId.value = draft.categoryId;
-          if (STATUSES.includes(draft.status)) f.status.value = draft.status;
+          if (hasChoice('categoryId', draft.categoryId || '')) setChoice('categoryId', draft.categoryId || '');
+          if (STATUSES.includes(draft.status)) setChoice('status', draft.status);
           banner.hidden = true;
           onChange();
         };
@@ -298,11 +315,9 @@
         ['|'],
         ['•', 'Bulleted list', () => prefixLines('- ')],
         ['1.', 'Numbered list', () => prefixLines('', true)],
-        ['☐', 'Task list', () => prefixLines('- [ ] ')],
+        ['☐', 'Checklist', () => prefixLines('- [ ] ')],
         ['❝', 'Quote', () => prefixLines('> ')],
         ['|'],
-        ['<>', 'Inline code', () => wrap('`', '`', 'code'), 'mono'],
-        ['{ }', 'Code block', () => wrap('\n```\n', '\n```\n', 'code'), 'mono'],
         ['Link', 'Link (Ctrl+K)', () => {
           const { selectionStart: s, selectionEnd: e, value } = editor;
           const label = value.slice(s, e) || 'link text';

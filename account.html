@@ -6,6 +6,15 @@
   <title>Account · Notewell</title>
   <meta name="robots" content="noindex, nofollow">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="manifest" href="site.webmanifest">
+  <meta name="application-name" content="Notewell">
+  <meta name="apple-mobile-web-app-title" content="Notewell">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#191919" media="(prefers-color-scheme: dark)">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
@@ -90,10 +99,10 @@
         <div class="p-6 grid md:grid-cols-3 gap-6" id="data-section" hidden>
           <div>
             <h3 class="font-medium text-sm">Your data</h3>
-            <p class="text-xs opacity-60 mt-1">Stored in this browser with <span id="engine"></span>.</p>
+            <p class="text-xs opacity-60 mt-1">Your notes are saved in this browser, on this device.</p>
           </div>
           <div class="md:col-span-2 space-y-3">
-            <p class="text-sm opacity-75">Download every note you own as JSON, including content, status and category.</p>
+            <p class="text-sm opacity-75">Save a backup copy of all your notes to your computer.</p>
             <button class="btn btn-sm gap-2" id="export"></button>
           </div>
         </div>
@@ -122,8 +131,7 @@
         document.getElementById('data-section').hidden = !user.isUser;
       }
       document.getElementById('force-icon').innerHTML = UI.icon('lock');
-      document.getElementById('engine').textContent = Store.engineName;
-      document.getElementById('export').innerHTML = UI.icon('download') + 'Export my notes';
+      document.getElementById('export').innerHTML = UI.icon('download') + 'Download a backup';
       render();
       if (user.mustChangePassword) pwd.elements.currentPassword.focus();
 
@@ -178,7 +186,7 @@
       document.getElementById('export').addEventListener('click', async () => {
         try {
           const data = await Notes.exportAll(user);
-          UI.download(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), `notes-export-${new Date().toISOString().slice(0, 10)}.json`);
+          UI.download(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), `notewell-backup-${new Date().toISOString().slice(0, 10)}.json`);
         } catch (err) {
           UI.handleError(err);
         }
