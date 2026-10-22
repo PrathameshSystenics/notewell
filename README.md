@@ -1,10 +1,10 @@
-# Notes & Document Manager
+# Notewell — Markdown Notes & Document Manager
 
-**Live demo:** https://prathameshsystenics.github.io/notes-document-manager/
+**Live demo:** https://prathameshsystenics.github.io/notewell/
 
 Write notes in Markdown, organise them by category and status (grid, list or kanban board), attach PDFs and images, and go back to any earlier version.
 
-A browser-only version of the Notes & Document Manager specification. It is built with plain HTML pages, Tailwind CSS and daisyUI. All data is stored in **IndexedDB**. If IndexedDB cannot be opened (some private-browsing modes), the app uses **localStorage** instead.
+Notewell is a browser-only implementation of the *Notes & Document Manager* project specification. It is built with plain HTML pages, Tailwind CSS and daisyUI. All data is stored in **IndexedDB**. If IndexedDB cannot be opened (some private-browsing modes), the app uses **localStorage** instead.
 
 ## Run
 
@@ -32,6 +32,11 @@ To reset everything, clear the site data in your browser's DevTools (Application
 - Top navigation bar, with a slide-down menu on phones.
 - The footer shows **"Made by Prathamesh"**, a GitHub source link, and the live-update connection status (the SignalR-style hub).
 - The footer's source link is set by `SOURCE_URL` in `js/core.js`.
+
+## SEO
+
+- The home page has a descriptive title, a meta description, its preferred web address, social-share preview tags, and app details for search engines.
+- Private app pages (dashboard, notes, admin, account) are marked so search engines don't index them. Only the home, sign-in and register pages are listed in `sitemap.xml`.
 
 ## Pages
 

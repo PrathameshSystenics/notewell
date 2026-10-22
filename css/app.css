@@ -472,3 +472,18 @@ body {
   font-variant-ligatures: none;
   font-feature-settings: 'liga' 0, 'calt' 0;
 }
+
+/* Back button: a compact bordered square on phones, a text link on larger screens */
+@media (max-width: 639.98px) {
+  .compact-btn {
+    width: calc(var(--size-field, 0.25rem) * 8);
+    padding-inline: 0;
+    flex-shrink: 0;
+  }
+  .back-btn {
+    width: calc(var(--size-field, 0.25rem) * 8);
+    padding-inline: 0;
+    border: 1px solid var(--line);
+    flex-shrink: 0;
+  }
+}

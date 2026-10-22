@@ -344,10 +344,10 @@
   }
 
   /* ------------------------------------------------------------------ shell */
-  function brand(href, compact) {
+  function brand(href) {
     return `<a href="${href}" class="flex items-center gap-2.5 min-w-0" aria-label="${esc(Config.APP_NAME)} home">
       <span class="brand-mark size-8 rounded-lg grid place-items-center shrink-0">${icon('notes', 'size-4')}</span>
-      <span class="font-semibold tracking-tight text-[15px] truncate ${compact ? 'max-sm:hidden' : ''}">Notes &amp; Document Manager</span>
+      <span class="font-bold tracking-tight text-lg leading-none">Notewell</span>
     </a>`;
   }
 
@@ -405,7 +405,7 @@
       <header class="sticky top-0 z-30 bg-base-100/95 backdrop-blur border-b hairline">
         <div class="max-w-6xl mx-auto h-14 md:h-16 px-4 md:px-8 flex items-center gap-2">
           <button type="button" class="btn btn-ghost btn-sm btn-square md:hidden -ml-1.5" id="menu-btn" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-nav">${icon('menu')}</button>
-          ${brand(Auth.homeFor(user), true)}
+          ${brand(Auth.homeFor(user))}
           <nav class="hidden md:flex items-center gap-1 ml-6" aria-label="Main">${links.map(link).join('')}</nav>
           <div class="ml-auto flex items-center gap-1 shrink-0">
             ${user.isUser ? `<a href="note-edit.html" class="btn btn-primary btn-sm gap-1.5 hidden sm:inline-flex mr-1.5">${icon('plus')}New note</a>` : ''}

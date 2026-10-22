@@ -14,10 +14,10 @@
 
   /* ------------------------------------------------------------ configuration */
   const Config = {
-    APP_NAME: 'Notes & Document Manager',
+    APP_NAME: 'Notewell',
     AUTHOR: 'Prathamesh',
     // Repository link shown in the footer.
-    SOURCE_URL: 'https://github.com/PrathameshSystenics/notes-document-manager',
+    SOURCE_URL: 'https://github.com/PrathameshSystenics/notewell',
     TITLE_MAX: 200,
     CONTENT_MAX: 100000,
     CATEGORY_MAX: 50,
